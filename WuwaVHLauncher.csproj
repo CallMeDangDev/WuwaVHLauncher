@@ -1,0 +1,85 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Version>1.0.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+
+    <!-- Single-file publish settings -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <ApplicationIcon>Resources\Images\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\Images\app.ico" />
+    <Resource Include="Resources\Images\header.jpg" />
+    <Resource Include="Resources\Images\bg-default.jpg" />
+  </ItemGroup>
+
+  <!-- XOR-encrypt web resources so ILSpy resource extraction yields garbage -->
+  <UsingTask TaskName="XorEncryptFiles" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceDir ParameterType="System.String" Required="true" />
+      <DestDir ParameterType="System.String" Required="true" />
+      <Key ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var keyBytes = System.Text.Encoding.UTF8.GetBytes(Key);
+        Directory.CreateDirectory(DestDir);
+        foreach (var src in Directory.GetFiles(SourceDir, "*", SearchOption.AllDirectories))
+        {
+            var rel = src.Substring(SourceDir.Length).TrimStart(Path.DirectorySeparatorChar);
+            var dst = Path.Combine(DestDir, rel);
+            Directory.CreateDirectory(Path.GetDirectoryName(dst));
+            var data = File.ReadAllBytes(src);
+            for (int i = 0; i < data.Length; i++)
+                data[i] ^= keyBytes[i % keyBytes.Length];
+            File.WriteAllBytes(dst, data);
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="EncryptWebResources" BeforeTargets="PrepareForBuild">
+    <XorEncryptFiles
+      SourceDir="Resources\Web\"
+      DestDir="$(IntermediateOutputPath)EncryptedWeb\"
+      Key="WuwaVH@2026!xK9#mQ" />
+  </Target>
+
+  <!-- Encrypted web resources with correct logical names -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\index.html" LogicalName="WuwaVHLauncher.Resources.Web.index.html" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\script.js" LogicalName="WuwaVHLauncher.Resources.Web.script.js" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\styles.css" LogicalName="WuwaVHLauncher.Resources.Web.styles.css" />
+    <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\assets\logo.png" LogicalName="WuwaVHLauncher.Resources.Web.assets.logo.png" />
+  </ItemGroup>
+
+  <!-- Remove XML docs, PDB and empty folders from publish output -->
+  <Target Name="CleanPublishExtras" AfterTargets="Publish">
+    <ItemGroup>
+      <_ExtraFiles Include="$(PublishDir)*.xml" />
+      <_ExtraFiles Include="$(PublishDir)*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(_ExtraFiles)" />
+    <RemoveDir Directories="$(PublishDir)Resources" />
+  </Target>
+
+</Project>
