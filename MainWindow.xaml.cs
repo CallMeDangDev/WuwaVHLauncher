@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -21,7 +22,7 @@ public partial class MainWindow : Window
     const string AssetsUrl = "https://raw.githubusercontent.com/CallMeDangDev/WuwaVH/refs/heads/main/Web/assets.json";
 
     volatile bool _pageReady;
-    string? _pendingBgm, _pendingVideo;
+    string? _pendingBgm, _pendingVideo, _pendingUpdateDate;
     SplashWindow? _splash;
 
     public MainWindow()
@@ -95,6 +96,7 @@ public partial class MainWindow : Window
 #endif
             
             _ = Task.Run(CheckAndDownloadMedia);
+            _ = Task.Run(CheckLauncherVersion);
         }
         catch (Exception ex)
         {
@@ -235,7 +237,7 @@ public partial class MainWindow : Window
 
     static string JsStr(string s) => JsonSerializer.Serialize(s);
 
-    void RunScript(string js)
+    internal void RunScript(string js)
     {
         Dispatcher.InvokeAsync(async () =>
         {
@@ -309,9 +311,15 @@ public partial class MainWindow : Window
 
             var toDownload = new List<(string Name, string Url, long Size, string Hash)>();
 
+            // Skip the default font pak if user has a custom font pak (any *_100_P.pak that isn't UTMAlexander_100_P.pak)
+            bool hasCustomFont = Directory.Exists(modDir) &&
+                Directory.GetFiles(modDir, "*_100_P.pak")
+                         .Any(f => !Path.GetFileName(f).Equals("UTMAlexander_100_P.pak", StringComparison.OrdinalIgnoreCase));
+
             foreach (var item in doc.RootElement.GetProperty("assets").EnumerateArray())
             {
                 var name = item.GetProperty("name").GetString() ?? "";
+                if (name == "UTMAlexander_100_P.pak" && hasCustomFont) continue;
                 if (name == "WuWaVH_99_P.pak" || name == "UTMAlexander_100_P.pak" || name == "version.dll")
                 {
                     var url = item.GetProperty("browser_download_url").GetString() ?? "";
@@ -482,7 +490,137 @@ public partial class MainWindow : Window
         }
     }
 
+    // ── Launcher update check ────────────────────────────────────────
+
+    const string LauncherReleasesApiUrl = "https://api.github.com/repos/CallMeDangDev/WuwaVHLauncher/releases/latest";
+    const string LauncherReleasesPageUrl = "https://github.com/CallMeDangDev/WuwaVHLauncher/releases";
+
+    internal async Task CheckLauncherVersion()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("WuwaVHLauncher/1.0");
+            var json = await http.GetStringAsync(LauncherReleasesApiUrl);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("tag_name", out var tagProp)) return;
+            var tag = tagProp.GetString()?.TrimStart('v', 'V') ?? "";
+            if (string.IsNullOrEmpty(tag)) return;
+
+            var current = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0);
+            if (!Version.TryParse(tag, out var latest)) return;
+
+            if (latest > current)
+            {
+                var downloadUrl = $"https://github.com/CallMeDangDev/WuwaVHLauncher/releases/download/v{tag}/WuwaVHLauncher-v{tag}.zip";
+                RunScript($"window.onLauncherUpdateAvailable({JsStr('v' + tag)}, {JsStr(downloadUrl)})");
+            }
+        }
+        catch { }
+    }
+
     // ── Media download & caching ────────────────────────────────────
+
+    internal async Task PerformLauncherUpdate(string version, string zipUrl)
+    {
+        try
+        {
+            var updateDir = Path.Combine(Path.GetTempPath(), "WuwaVHLauncher_update");
+            if (Directory.Exists(updateDir)) Directory.Delete(updateDir, true);
+            Directory.CreateDirectory(updateDir);
+            var zipPath = Path.Combine(updateDir, "update.zip");
+
+            // Download zip
+            RunScript("window.onLauncherUpdateProgress(0, '\u0110ang tải xuống...')");
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("WuwaVHLauncher/1.0");
+
+            using var resp = await http.GetAsync(zipUrl, HttpCompletionOption.ResponseHeadersRead);
+            resp.EnsureSuccessStatusCode();
+            long total = resp.Content.Headers.ContentLength ?? -1;
+
+            await using (var net = await resp.Content.ReadAsStreamAsync())
+            await using (var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None, 65536, true))
+            {
+                var buf = new byte[65536];
+                long got = 0;
+                var sw = Stopwatch.StartNew();
+                int read;
+                while ((read = await net.ReadAsync(buf)) > 0)
+                {
+                    await fs.WriteAsync(buf.AsMemory(0, read));
+                    got += read;
+                    if (sw.ElapsedMilliseconds >= 300)
+                    {
+                        int pct = total > 0 ? (int)(got * 100 / total) : 0;
+                        var sizeText = total > 0
+                            ? $"{got / 1_048_576.0:F1} / {total / 1_048_576.0:F1} MB"
+                            : $"{got / 1_048_576.0:F1} MB";
+                        RunScript($"window.onLauncherUpdateProgress({pct}, {JsStr(sizeText)})");
+                        sw.Restart();
+                    }
+                }
+            }
+
+            // Extract
+            RunScript("window.onLauncherUpdateProgress(95, 'Đang giải nén...')");
+            var extractDir = Path.Combine(updateDir, "extracted");
+            ZipFile.ExtractToDirectory(zipPath, extractDir);
+
+            // Find new exe
+            var newExe = Directory.GetFiles(extractDir, "WuwaVHLauncher.exe", SearchOption.AllDirectories)
+                                   .FirstOrDefault()
+                         ?? throw new Exception("Không tìm thấy WuwaVHLauncher.exe trong file zip.");
+
+            var currentExe = Process.GetCurrentProcess().MainModule?.FileName
+                             ?? throw new Exception("Không xác định được đường dấn exe hiện tại.");
+            var currentPid = Environment.ProcessId;
+
+            // Write PowerShell updater script
+            var scriptPath = Path.Combine(updateDir, "updater.ps1");
+            var newExeEscaped = newExe.Replace("'", "''");
+            var currentExeEscaped = currentExe.Replace("'", "''");
+            var scriptContent =
+                $"$launcherPid = {currentPid}\n" +
+                $"$newExe     = '{newExeEscaped}'\n" +
+                $"$targetExe  = '{currentExeEscaped}'\n" +
+                "# Wait for launcher process to fully exit\n" +
+                "while ($null -ne (Get-Process -Id $launcherPid -ErrorAction SilentlyContinue)) {\n" +
+                "    Start-Sleep -Milliseconds 300\n" +
+                "}\n" +
+                "Start-Sleep -Milliseconds 500\n" +
+                "try {\n" +
+                "    Copy-Item -Path $newExe -Destination $targetExe -Force\n" +
+                "    Start-Process -FilePath $targetExe\n" +
+                "} catch {\n" +
+                "    Add-Type -AssemblyName PresentationFramework\n" +
+                "    [System.Windows.MessageBox]::Show(\"C\u1eadp nh\u1eadt th\u1ea5t b\u1ea1i: $_\", \"WuwaVHLauncher Updater\")\n" +
+                "}\n" +
+                "# Cleanup\n" +
+                "Start-Sleep -Seconds 2\n" +
+                $"Remove-Item -Recurse -Force '{updateDir.Replace("'", "''")}' -ErrorAction SilentlyContinue\n";
+            File.WriteAllText(scriptPath, scriptContent, System.Text.Encoding.UTF8);
+
+            RunScript("window.onLauncherUpdateProgress(100, 'Khởi động lại...')");
+            await Task.Delay(800);
+
+            // Launch updater detached then exit
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-ExecutionPolicy Bypass -WindowStyle Hidden -NonInteractive -File \"{scriptPath}\"",
+                UseShellExecute = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+
+            Dispatcher.Invoke(() => Application.Current.Shutdown());
+        }
+        catch (Exception ex)
+        {
+            RunScript($"window.onLauncherUpdateError({JsStr(ex.Message)})");
+        }
+    }
 
     async Task CheckAndDownloadMedia()
     {
@@ -497,6 +635,18 @@ public partial class MainWindow : Window
             http.DefaultRequestHeaders.UserAgent.ParseAdd("WuwaVHLauncher/1.0");
             var json = await http.GetStringAsync(AssetsUrl);
             using var doc = JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("update_date", out var updateDateProp))
+            {
+                var updateDate = updateDateProp.GetString() ?? "";
+                if (!string.IsNullOrEmpty(updateDate))
+                {
+                    if (_pageReady)
+                        RunScript($"window.onUpdateDate({JsStr(updateDate)})");
+                    else
+                        _pendingUpdateDate = updateDate;
+                }
+            }
 
             foreach (var item in doc.RootElement.GetProperty("assets").EnumerateArray())
             {
@@ -586,8 +736,11 @@ public partial class MainWindow : Window
     }
 
     void FlushPendingMedia()
-    {
-        if (_pendingBgm != null || _pendingVideo != null)
+    {        if (_pendingUpdateDate != null)
+        {
+            RunScript($"window.onUpdateDate({JsStr(_pendingUpdateDate)})");
+            _pendingUpdateDate = null;
+        }        if (_pendingBgm != null || _pendingVideo != null)
         {
             RunScript($"window.onMediaReady({JsStr(_pendingBgm ?? "")}, {JsStr(_pendingVideo ?? "")})");
             _pendingBgm = _pendingVideo = null;
@@ -708,6 +861,11 @@ public class LauncherBridge
         catch { return ""; }
     }
 
+    public void CheckLauncherUpdate() => Task.Run(() => _w.CheckLauncherVersion());
+
+    public void PerformLauncherUpdate(string version, string zipUrl) =>
+        Task.Run(() => _w.PerformLauncherUpdate(version, zipUrl));
+
     public void StartInstallation(string gamePath, string vhMode, bool backup) =>
         Task.Run(() => _w.RunInstallation(gamePath, vhMode, backup));
 
@@ -773,6 +931,111 @@ public class LauncherBridge
             catch { /* User cancelled UAC prompt */ }
         });
     }
+
+    // ── Font tuỳ chỉnh ───────────────────────────────────────────────────────
+
+    static readonly string RepoFontPak = "UTMAlexander_100_P.pak";
+
+    public string BrowseFontFile() =>
+        _w.Dispatcher.Invoke(() =>
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title  = "Chọn file font",
+                Filter = "Font files (*.ttf;*.otf)|*.ttf;*.otf|All files (*.*)|*.*"
+            };
+            return dlg.ShowDialog(_w) == true ? dlg.FileName : "";
+        });
+
+    public string GetCustomFontName(string gamePath)
+    {
+        try
+        {
+            var modDir = Path.Combine(gamePath, @"Client\Binaries\Win64\wuwaVietHoa");
+            if (!Directory.Exists(modDir)) return "";
+            var custom = Directory.GetFiles(modDir, "*_100_P.pak")
+                .Select(Path.GetFileName)
+                .FirstOrDefault(n => !string.Equals(n, RepoFontPak, StringComparison.OrdinalIgnoreCase));
+            return custom is null ? "" : Path.GetFileNameWithoutExtension(custom);
+        }
+        catch { return ""; }
+    }
+
+    public void CreateFontPak(string fontFilePath, string gamePath, string pakName) =>
+        Task.Run(async () =>
+        {
+            try
+            {
+                _w.RunScript("window.onFontPakProgress('Đang đọc file font...')");
+
+                if (!File.Exists(fontFilePath))
+                    throw new FileNotFoundException("Không tìm thấy file font: " + fontFilePath);
+
+                byte[] fontData = await File.ReadAllBytesAsync(fontFilePath);
+                if (fontData.Length == 0)
+                    throw new InvalidDataException("File font rỗng.");
+
+                _w.RunScript("window.onFontPakProgress('Đang đóng gói .pak...')");
+
+                var modDir = Path.Combine(gamePath, @"Client\Binaries\Win64\wuwaVietHoa");
+                Directory.CreateDirectory(modDir);
+
+                // Remove every existing *_100_P.pak before writing the new one
+                foreach (var old in Directory.GetFiles(modDir, "*_100_P.pak"))
+                    try { File.Delete(old); } catch { }
+
+                var outputPakPath = WuwaPakPacker.PackFont(modDir, pakName, fontData);
+
+                long pakSize = new FileInfo(outputPakPath).Length;
+                string sizeStr = pakSize < 1_048_576
+                    ? $"{pakSize / 1024.0:F1} KB"
+                    : $"{pakSize / 1_048_576.0:F2} MB";
+
+                var escapedPath = JsonSerializer.Serialize(outputPakPath);
+                var escapedSize = JsonSerializer.Serialize(sizeStr);
+                _w.RunScript($"window.onFontPakDone({escapedPath}, {escapedSize})");
+            }
+            catch (Exception ex)
+            {
+                var escaped = JsonSerializer.Serialize(ex.Message);
+                _w.RunScript($"window.onFontPakError({escaped})");
+            }
+        });
+
+    public void RemoveCustomFont(string gamePath) =>
+        Task.Run(() =>
+        {
+            try
+            {
+                var modDir = Path.Combine(gamePath, @"Client\Binaries\Win64\wuwaVietHoa");
+                if (Directory.Exists(modDir))
+                {
+                    foreach (var f in Directory.GetFiles(modDir, "*_100_P.pak"))
+                        try { File.Delete(f); } catch { }
+                }
+
+                // Clear cached hash for the repo font so it gets re-downloaded
+                var versionCachePath = Path.Combine(MainWindow.AppDataFolder, "versions.json");
+                if (File.Exists(versionCachePath))
+                {
+                    try
+                    {
+                        var json = File.ReadAllText(versionCachePath);
+                        var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new();
+                        dict.Remove(RepoFontPak);
+                        File.WriteAllText(versionCachePath, JsonSerializer.Serialize(dict));
+                    }
+                    catch { }
+                }
+
+                _w.RunScript("window.onFontRevertDone()");
+            }
+            catch (Exception ex)
+            {
+                var escaped = JsonSerializer.Serialize(ex.Message);
+                _w.RunScript($"window.onFontRevertError({escaped})");
+            }
+        });
 }
 
 

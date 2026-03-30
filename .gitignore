@@ -16,3 +16,6 @@ publish/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+#temp files
+temp/

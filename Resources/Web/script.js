@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBottomBar();
     initAudioPlayer();
     initWaterRipple();
+    initFontCreator();
     loadSettings();
     loadVersions();
 });
@@ -184,6 +185,7 @@ function switchPage(page) {
     document.getElementById('rightPanel').style.display      = isHome ? '' : 'none';
     document.getElementById('pageFontCreator').style.display = isHome ? 'none' : '';
     updateNavIndicator();
+    if (!isHome) fcRefreshStatus();
 }
 
 function updateNavIndicator() {
@@ -243,12 +245,18 @@ function initBottomBar() {
         await browseFolder();
     });
 
-    document.getElementById('menuCheckUpdate')?.addEventListener('click', () => {
+    document.getElementById('menuCheckVH')?.addEventListener('click', () => {
         dropdown?.classList.remove('open');
         document.getElementById('btnMenu')?.classList.remove('active');
         if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
         if (S.installing) return;
         startInstall();
+    });
+
+    document.getElementById('menuCheckUpdate')?.addEventListener('click', () => {
+        dropdown?.classList.remove('open');
+        document.getElementById('btnMenu')?.classList.remove('active');
+        checkLauncherUpdate(false);
     });
 
     document.getElementById('menuForceQuit')?.addEventListener('click', () => {
@@ -421,6 +429,89 @@ window.onGamePathDetected = path => {
 };
 
 /* Media streaming callbacks (called by C# background download) */
+/* ===========================================
+   UPDATE COUNTDOWN
+   =========================================== */
+(function() {
+    let _targetDate = null;
+    let _totalMs = 0;
+    let _ticker = null;
+
+    function pad(n) { return String(Math.max(0, n)).padStart(2, '0'); }
+
+    function tick() {
+        const el = document.getElementById('updateCountdown');
+        if (!el || !_targetDate) return;
+
+        const now = Date.now();
+        const diff = _targetDate - now;
+
+        if (diff <= 0) {
+            // Countdown finished — show all zeros, mark done
+            ['ucDays','ucHours','ucMins','ucSecs'].forEach(id => {
+                const e = document.getElementById(id);
+                if (e) e.textContent = '00';
+            });
+            const fill = document.getElementById('ucBarFill');
+            if (fill) fill.style.width = '100%';
+            el.classList.add('uc-done');
+            clearInterval(_ticker);
+            _ticker = null;
+            return;
+        }
+
+        el.classList.remove('uc-done');
+        const totalSec = Math.floor(diff / 1000);
+        const days  = Math.floor(totalSec / 86400);
+        const hours = Math.floor((totalSec % 86400) / 3600);
+        const mins  = Math.floor((totalSec % 3600) / 60);
+        const secs  = totalSec % 60;
+
+        const dEl = document.getElementById('ucDays');
+        const hEl = document.getElementById('ucHours');
+        const mEl = document.getElementById('ucMins');
+        const sEl = document.getElementById('ucSecs');
+        if (dEl) dEl.textContent = pad(days);
+        if (hEl) hEl.textContent = pad(hours);
+        if (mEl) mEl.textContent = pad(mins);
+        if (sEl) sEl.textContent = pad(secs);
+
+        const fill = document.getElementById('ucBarFill');
+        if (fill && _totalMs > 0) {
+            const elapsed = _totalMs - diff;
+            fill.style.width = Math.min(100, (elapsed / _totalMs) * 100).toFixed(2) + '%';
+        }
+    }
+
+    function reposition() {
+        const el  = document.getElementById('updateCountdown');
+        const ap  = document.getElementById('audioPlayer');
+        if (!el || !ap) return;
+        const apH = ap.offsetHeight;
+        const gap = parseInt(getComputedStyle(document.documentElement)
+            .getPropertyValue('--edge-gap')) || 20;
+        el.style.bottom = (gap + apH + 10) + 'px';
+    }
+
+    window.onUpdateDate = (dateStr) => {
+        const el = document.getElementById('updateCountdown');
+        if (!el) return;
+
+        const target = new Date(dateStr);
+        if (isNaN(target.getTime())) return;
+
+        _targetDate = target.getTime();
+        // Use 6-week cycle as total span for the progress bar
+        _totalMs = 6 * 7 * 24 * 3600 * 1000;
+
+        el.style.display = '';
+        reposition();
+        tick();
+        if (_ticker) clearInterval(_ticker);
+        _ticker = setInterval(tick, 1000);
+    };
+})();
+
 window.onMediaStatus = (status, msg) => {
     const el   = document.getElementById('rpStatus');
     const txt  = document.getElementById('rpStatusText');
@@ -505,6 +596,70 @@ async function loadVersions() {
         if (elVH)  elVH.textContent  = vhVer  ? `VH ${vhVer}` : '';
     } catch(e) {}
 }
+
+let _launcherUpdateUrl = '';
+let _launcherUpdateVer = '';
+
+function checkLauncherUpdate(silent = true) {
+    if (!silent) toast('Đang kiểm tra cập nhật Launcher...', 'info');
+    if (bridge()) bridge().CheckLauncherUpdate();
+}
+
+window.onLauncherUpdateAvailable = (latestVer, downloadUrl) => {
+    _launcherUpdateUrl = downloadUrl;
+    _launcherUpdateVer = latestVer;
+
+    // Badge in dropdown
+    const badge = document.getElementById('rpUpdateBadge');
+    if (badge) badge.style.display = '';
+
+    // Highlight version label
+    document.querySelector('.rp-version')?.classList.add('has-update');
+
+    // Show modal
+    const overlay  = document.getElementById('luOverlay');
+    const verEl    = document.getElementById('luModalVer');
+    const pbar     = document.getElementById('luPbar');
+    const btns     = document.getElementById('luModalBtns');
+    const btnLater  = document.getElementById('luBtnLater');
+    const btnUpdate = document.getElementById('luBtnUpdate');
+
+    if (!overlay) return;
+    if (verEl) verEl.textContent = latestVer;
+    if (pbar)  pbar.style.display  = 'none';
+    if (btns)  btns.style.display  = '';
+    overlay.style.display = '';
+
+    btnLater?.addEventListener('click', () => {
+        overlay.style.display = 'none';
+    }, { once: true });
+
+    btnUpdate?.addEventListener('click', () => {
+        if (!bridge()) return;
+        // Hide buttons, show progress bar
+        if (btns) btns.style.display = 'none';
+        if (pbar) pbar.style.display = '';
+        btnUpdate.disabled = true;
+        bridge().PerformLauncherUpdate(_launcherUpdateVer, _launcherUpdateUrl);
+    }, { once: true });
+};
+
+window.onLauncherUpdateProgress = (pct, text) => {
+    const fill    = document.getElementById('luPbarFill');
+    const textEl  = document.getElementById('luPbarText');
+    const subEl   = document.getElementById('luPbarSub');
+    const pbar    = document.getElementById('luPbar');
+    if (pbar) pbar.style.display = '';
+    if (fill)   fill.style.width   = pct + '%';
+    if (textEl) textEl.textContent = pct + '%';
+    if (subEl)  subEl.textContent  = text;
+};
+
+window.onLauncherUpdateError = (msg) => {
+    const overlay = document.getElementById('luOverlay');
+    if (overlay) overlay.style.display = 'none';
+    toast('Cập nhật thất bại: ' + msg, 'err');
+};
 
 function loadSettings() {
     if (bridge()) {
@@ -762,6 +917,142 @@ function toast(msg, type='info') {
         el.classList.remove('show');
         setTimeout(() => el.remove(), 400);
     }, 3500);
+}
+
+/* ===========================================
+   CÀI FONT TUỲ CHỈNH
+   =========================================== */
+const FC = {
+    fontPath: '',
+    building: false,
+};
+
+function initFontCreator() {
+    document.getElementById('fcBrowseFont')?.addEventListener('click', fcBrowseFont);
+    document.getElementById('fcBuildBtn')?.addEventListener('click', fcBuild);
+    document.getElementById('fcRevertBtn')?.addEventListener('click', fcRevert);
+}
+
+// Called whenever the Font page becomes visible
+function fcRefreshStatus() {
+    if (!S.gamePath) {
+        fcSetCurrentFont(null);
+        return;
+    }
+    if (bridge()) {
+        bridge().GetCustomFontName(S.gamePath).then(name => fcSetCurrentFont(name || null));
+    }
+}
+
+function fcSetCurrentFont(name) {
+    const nameEl   = document.getElementById('fcCurrentName');
+    const revertBtn = document.getElementById('fcRevertBtn');
+    if (!nameEl) return;
+    if (name) {
+        nameEl.textContent = name;
+        nameEl.classList.add('fc-current__name--custom');
+        if (revertBtn) revertBtn.style.display = '';
+    } else {
+        nameEl.textContent = 'Font gốc (UTMAlexander)';
+        nameEl.classList.remove('fc-current__name--custom');
+        if (revertBtn) revertBtn.style.display = 'none';
+    }
+}
+
+async function fcBrowseFont() {
+    if (!bridge()) {
+        // Demo mode
+        FC.fontPath = 'C:\\Fonts\\MyFont.ttf';
+        document.getElementById('fcFontDisplay').textContent = 'MyFont.ttf';
+        document.getElementById('fcOutputName').value = 'MyFont';
+        document.getElementById('fcBuildBtn').disabled = false;
+        return;
+    }
+    const path = await bridge().BrowseFontFile();
+    if (!path) return;
+    FC.fontPath = path;
+    const fileName = path.split('\\').pop().split('/').pop();
+    const baseName = fileName.replace(/\.[^.]+$/, ''); // strip extension
+    document.getElementById('fcFontDisplay').textContent = fileName;
+    document.getElementById('fcOutputName').value = baseName;
+    document.getElementById('fcBuildBtn').disabled = false;
+    fcSetStatus('', false);
+}
+
+async function fcBuild() {
+    if (FC.building) return;
+    if (!FC.fontPath) { toast('Vui lòng chọn file font trước!', 'err'); return; }
+    if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
+
+    const baseName = (document.getElementById('fcOutputName')?.value.trim() || 'CustomFont');
+
+    FC.building = true;
+    const btn = document.getElementById('fcBuildBtn');
+    if (btn) { btn.disabled = true; btn.classList.add('fc-btn--loading'); }
+    fcSetStatus('Đang xử lý...', false);
+
+    if (bridge()) {
+        bridge().CreateFontPak(FC.fontPath, S.gamePath, baseName);
+    } else {
+        setTimeout(() => {
+            window.onFontPakDone(`C:\\WW\\wuwaVietHoa\\${baseName}_100_P.pak`, '2.4 MB');
+        }, 1200);
+    }
+}
+
+async function fcRevert() {
+    if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
+    const confirmed = await showConfirm('Xoá font tuỳ chỉnh và dùng lại font gốc UTMAlexander?');
+    if (!confirmed) return;
+    fcSetStatus('Đang xoá font tuỳ chỉnh...', false);
+    if (bridge()) {
+        bridge().RemoveCustomFont(S.gamePath);
+    } else {
+        setTimeout(() => window.onFontRevertDone(), 600);
+    }
+}
+
+window.onFontPakProgress = (msg) => {
+    fcSetStatus(msg, false);
+};
+
+window.onFontPakDone = (outputPath, sizeStr) => {
+    FC.building = false;
+    const btn = document.getElementById('fcBuildBtn');
+    if (btn) { btn.disabled = false; btn.classList.remove('fc-btn--loading'); }
+
+    const fileName = outputPath.split('\\').pop().split('/').pop();
+    fcSetStatus(`✓ Đã cài: ${fileName} (${sizeStr})`, false, true);
+    toast('Cài font thành công!', 'ok');
+    fcRefreshStatus();
+};
+
+window.onFontPakError = (msg) => {
+    FC.building = false;
+    const btn = document.getElementById('fcBuildBtn');
+    if (btn) { btn.disabled = false; btn.classList.remove('fc-btn--loading'); }
+    fcSetStatus('Lỗi: ' + msg, true);
+    toast('Lỗi: ' + msg, 'err');
+};
+
+window.onFontRevertDone = () => {
+    fcSetStatus('✓ Đã xoá font tuỳ chỉnh. Font gốc sẽ được tải lại khi cập nhật.', false, true);
+    toast('Đã dùng lại font gốc!', 'ok');
+    fcRefreshStatus();
+};
+
+window.onFontRevertError = (msg) => {
+    fcSetStatus('Lỗi: ' + msg, true);
+    toast('Lỗi: ' + msg, 'err');
+};
+
+function fcSetStatus(msg, isError, isSuccess = false) {
+    const el = document.getElementById('fcStatus');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    el.className = 'fc-status' + (isError ? ' fc-status--err' : isSuccess ? ' fc-status--ok' : '');
+    el.textContent = msg;
 }
 
 
