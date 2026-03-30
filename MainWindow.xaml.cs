@@ -513,6 +513,7 @@ public partial class MainWindow : Window
 
             if (latest > current)
             {
+                while (!_pageReady) await Task.Delay(100);
                 var downloadUrl = $"https://github.com/CallMeDangDev/WuwaVHLauncher/releases/download/v{tag}/WuwaVHLauncher-v{tag}.zip";
                 RunScript($"window.onLauncherUpdateAvailable({JsStr('v' + tag)}, {JsStr(downloadUrl)})");
             }
