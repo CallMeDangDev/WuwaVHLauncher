@@ -20,3 +20,7 @@ Launcher cài đặt bản Việt Hoá Wuthering Waves.
 
 - Windows 10/11
 - [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (thường đã có sẵn trên Windows 11)
+
+## Credits
+
+- [AlteriaX/WuWa-Configs](https://github.com/AlteriaX/WuWa-Configs) — Game configuration presets, used for High Performance mode

@@ -4,7 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wuthering Waves - Việt Hoá Launcher</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles-base.css">
+    <link rel="stylesheet" href="styles-panel.css">
+    <link rel="stylesheet" href="styles-effects.css">
+    <link rel="stylesheet" href="styles-font.css">
 </head>
 <body>
     <!-- Background Video Layer -->
@@ -18,6 +21,30 @@
     <!-- Floating Particles -->
     <canvas id="particleCanvas"></canvas>
 
+    <!-- ===== LEFT SIDEBAR: Release Notes ===== -->
+    <div class="side-panel" id="sidePanel" style="display:none;">
+        <div class="rn-content">
+            <div class="rn-head">
+                <div class="rn-head__left">
+                    <span class="rn-tag" id="rnTag">VH</span>
+                    <span class="rn-head__title">VIỆT HOÁ - THÔNG BÁO</span>
+                </div>
+                <span class="rn-date" id="rnDate"></span>
+            </div>
+            <div class="rn-sep"></div>
+            <div class="rn-body" id="rnBody">
+                <div class="rn-loading">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+        <button class="rn-toggle" id="rnToggle" title="Thu gọn / Mở rộng">
+            <svg viewBox="0 0 24 24" width="11" height="11">
+                <path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+        </button>
+    </div>
+
     <!-- ===== TOP BAR ===== -->
     <header class="top-bar" id="topBar">
         <div class="top-bar__left">
@@ -25,6 +52,7 @@
         </div>
         <nav class="top-nav" id="topNav">
             <button class="top-nav__item active" data-page="home">HOME</button>
+            <button class="top-nav__item" data-page="performance">HIỆU NĂNG</button>
             <button class="top-nav__item" data-page="font-creator">FONT TUỲ CHỈNH</button>
             <div class="top-nav__indicator" id="topNavIndicator">
                 <canvas id="navWaveCanvas"></canvas>
@@ -39,33 +67,6 @@
             </button>
         </div>
     </header>
-
-    <!-- ===== COUNTDOWN WIDGET (LEFT SIDE) ===== -->
-    <div class="update-countdown" id="updateCountdown" style="display:none;">
-        <div class="uc-label">PHIÊN BẢN GAME TIẾP THEO</div>
-        <div class="uc-timer">
-            <div class="uc-unit">
-                <span class="uc-digit" id="ucDays">00</span>
-                <span class="uc-unit-label">Ngày</span>
-            </div>
-            <span class="uc-sep">:</span>
-            <div class="uc-unit">
-                <span class="uc-digit" id="ucHours">00</span>
-                <span class="uc-unit-label">Giờ</span>
-            </div>
-            <span class="uc-sep">:</span>
-            <div class="uc-unit">
-                <span class="uc-digit" id="ucMins">00</span>
-                <span class="uc-unit-label">Phút</span>
-            </div>
-            <span class="uc-sep">:</span>
-            <div class="uc-unit">
-                <span class="uc-digit" id="ucSecs">00</span>
-                <span class="uc-unit-label">Giây</span>
-            </div>
-        </div>
-        <div class="uc-bar"><div class="uc-bar__fill" id="ucBarFill"></div></div>
-    </div>
 
     <!-- ===== LAUNCHER UPDATE MODAL ===== -->
     <div class="lu-overlay" id="luOverlay" style="display:none;" aria-modal="true">
@@ -93,6 +94,33 @@
 
     <!-- ===== RIGHT PANEL ===== -->
     <aside class="right-panel" id="rightPanel">
+
+        <!-- Countdown widget (above download bar) -->
+        <div class="update-countdown" id="updateCountdown" style="display:none;">
+            <div class="uc-label">PHIÊN BẢN GAME TIẾP THEO</div>
+            <div class="uc-timer">
+                <div class="uc-unit">
+                    <span class="uc-digit" id="ucDays">00</span>
+                    <span class="uc-unit-label">Ngày</span>
+                </div>
+                <span class="uc-sep">:</span>
+                <div class="uc-unit">
+                    <span class="uc-digit" id="ucHours">00</span>
+                    <span class="uc-unit-label">Giờ</span>
+                </div>
+                <span class="uc-sep">:</span>
+                <div class="uc-unit">
+                    <span class="uc-digit" id="ucMins">00</span>
+                    <span class="uc-unit-label">Phút</span>
+                </div>
+                <span class="uc-sep">:</span>
+                <div class="uc-unit">
+                    <span class="uc-digit" id="ucSecs">00</span>
+                    <span class="uc-unit-label">Giây</span>
+                </div>
+            </div>
+            <div class="uc-bar"><div class="uc-bar__fill" id="ucBarFill"></div></div>
+        </div>
 
         <!-- Asset status / download progress (where folder picker was) -->
         <div class="rp-status" id="rpStatus" style="display:none;">
@@ -143,6 +171,15 @@
             </button>
         </div>
 
+        <!-- DX11 checkbox — only visible when game is installed/playable -->
+        <div class="dx11-row" id="dx11Row" style="display:none;">
+            <label class="dx11-label" for="chkDx11">
+                <input type="checkbox" id="chkDx11" class="dx11-input">
+                <span class="dx11-checkmark"></span>
+                <span class="dx11-text">Chạy game với DirectX 11</span>
+            </label>
+        </div>
+
         <!-- Actions row: hamburger + start button -->
         <div class="rp-actions">
             <button class="rp-menu__btn" id="btnMenu" title="Menu">
@@ -163,6 +200,205 @@
     </aside>
 
 
+
+    <!-- ===== HIGH PERFORMANCE MODE PAGE ===== -->
+    <div id="pagePerformance" class="page-overlay" style="display:none;">
+        <div class="pm-panel">
+
+            <!-- Header -->
+            <div class="pm-panel__header">
+                <div class="pm-header__icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div class="pm-header__text">
+                    <span class="pm-header__title">High Performance Mode</span>
+                    <span class="pm-header__sub">Tắt các hiệu ứng nặng để tăng FPS</span>
+                </div>
+                <div class="pm-status">
+                    <span class="pm-status__dot" id="pmStatusDot"></span>
+                    <span id="pmStatusText">Chưa áp dụng</span>
+                </div>
+            </div>
+
+            <!-- Toggle grid -->
+            <div class="pm-body">
+
+                <div class="pm-group-label">Bóng tối</div>
+                <div class="pm-row">
+                    <label class="pm-card" for="pmShadows">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Giảm chất lượng bóng</span>
+                            <span class="pm-card__code">Shadow res 2048 → 256, cull distance giảm</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmShadows" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pm-group-label">Hiệu ứng màn hình</div>
+                <div class="pm-row pm-row--2col">
+                    <label class="pm-card" for="pmSsr">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Phản chiếu (SSR)</span>
+                            <span class="pm-card__code">MaxRoughness=0.1, HalfRes=1</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmSsr" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmAo">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Ambient Occlusion</span>
+                            <span class="pm-card__code">r.AmbientOcclusionMaxQuality=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmAo" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmBloom">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Bloom (FFT)</span>
+                            <span class="pm-card__code">r.Kuro.KuroEnableFFTBloom=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmBloom" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmLensFlare">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Lens Flare &amp; Screen Leak</span>
+                            <span class="pm-card__code">r.DrawKuroPPLensflare=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmLensFlare" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmDof">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Depth of Field</span>
+                            <span class="pm-card__code">r.DepthOfFieldQuality=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmDof" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pm-group-label">Vật liệu</div>
+                <div class="pm-row pm-row--2col">
+                    <label class="pm-card" for="pmMaterials">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Material thấp (tắt POM)</span>
+                            <span class="pm-card__code">r.KuroMaterialQualityLevel=2</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmMaterials" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmSss">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Subsurface Scattering</span>
+                            <span class="pm-card__code">r.SSS.Scale=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmSss" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pm-group-label">Tầm nhìn &amp; Thực vật</div>
+                <div class="pm-row pm-row--2col">
+                    <label class="pm-card" for="pmViewDist">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Giảm tầm nhìn</span>
+                            <span class="pm-card__code">r.ViewDistanceScale=0.8, LOD aggressive</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmViewDist" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmFoliage">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Ẩn toàn bộ cỏ/cây</span>
+                            <span class="pm-card__code">foliage.CullAll=1</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmFoliage" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmFoliageInteract">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Tắt tương tác thực vật</span>
+                            <span class="pm-card__code">r.Kuro.InteractionEffect.*=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmFoliageInteract" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="pm-group-label">Hạt, mây &amp; Ánh sáng thể tích</div>
+                <div class="pm-row pm-row--2col">
+                    <label class="pm-card" for="pmParticles">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Giảm hạt (Particles)</span>
+                            <span class="pm-card__code">r.EmitterSpawnRateScale=0.125</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmParticles" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmClouds">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Tắt mây thể tích</span>
+                            <span class="pm-card__code">r.KuroVolumeCloudEnable=0</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmClouds" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                    <label class="pm-card" for="pmVolumetric">
+                        <div class="pm-card__info">
+                            <span class="pm-card__title">Giảm ánh sáng thể tích</span>
+                            <span class="pm-card__code">r.KuroVolumetricLight.*=4</span>
+                        </div>
+                        <div class="pm-switch">
+                            <input type="checkbox" id="pmVolumetric" class="pm-switch__input">
+                            <span class="pm-switch__track"></span>
+                        </div>
+                    </label>
+                </div>
+
+            </div><!-- .pm-body -->
+
+            <!-- Footer -->
+            <div class="pm-footer">
+                <p class="pm-note">
+                    <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                    Game đang chạy sẽ không bị ảnh hưởng — cần khởi động lại game để áp dụng.
+                </p>
+                <div class="pm-actions">
+                    <button class="pm-btn pm-btn--ghost" id="pmClearBtn">Khôi phục file gốc</button>
+                    <button class="pm-btn pm-btn--primary" id="pmApplyBtn">Áp dụng &amp; Lưu</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
     <!-- ===== CÀI FONT TUỲ CHỈNH PAGE ===== -->
     <div id="pageFontCreator" class="page-overlay" style="display:none;">
@@ -291,9 +527,54 @@
             </div>
         </div>
     </div>
+
+    <!-- ===== ADMIN PERMISSION MODAL ===== -->
+    <div id="adminModal" class="modal-backdrop" style="display:none;">
+        <div class="modal-box admin-modal">
+            <div class="admin-modal__header">
+                <div class="admin-modal__shield">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l5 2.18V11c0 3.5-2.33 6.79-5 7.93C9.33 17.79 7 14.5 7 11V7.18L12 5z"/></svg>
+                </div>
+                <div class="admin-modal__titles">
+                    <div class="admin-modal__label">YÊu cẦu quyền</div>
+                    <div class="admin-modal__title">Quản trị viên (Admin)</div>
+                </div>
+            </div>
+            <div class="admin-modal__sep"></div>
+            <p class="admin-modal__reason">
+                Thư mục game đang ở vị trí được bảo vệ bởi Windows
+                <span class="admin-modal__path" id="adminModalPath"></span>
+                nên Launcher cần quyền Admin để ghi file vào đó.
+            </p>
+            <div class="admin-modal__features">
+                <div class="admin-modal__feat">
+                    <div class="admin-modal__feat-icon admin-modal__feat-icon--font">
+                        <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M9.6 14.4 6.4 4H4L.8 14.4h2.1l.7-2.4h3.2l.7 2.4H9.6zM4 10.4l1.2-4 1.2 4H4zm10.4-6.4v5.6l-1.6-5.6H10v12h2V7.6l1.8 6h1.2l1.8-6V16h2V4h-2.8l-1.6 5.6z"/></svg>
+                    </div>
+                    <div>
+                        <div class="admin-modal__feat-title">FONT TUỲ CHỈNH</div>
+                        <div class="admin-modal__feat-desc">Cài file <code>.pak</code> vào thư mục mod của game</div>
+                    </div>
+                </div>
+            </div>
+            <div class="admin-modal__sep"></div>
+            <div class="admin-modal__actions">
+                <button class="modal-btn modal-btn--cancel" id="adminModalCancel">Không cần</button>
+                <button class="modal-btn modal-btn--ok admin-modal__ok" id="adminModalOk">
+                    <svg viewBox="0 0 24 24" width="14" height="14" style="flex-shrink:0"><path fill="currentColor" d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                    Khởi động lại với Admin
+                </button>
+            </div>
+        </div>
+    </div>
     <audio id="bgMusic" loop preload="auto">
         <!-- src set by JS once asset is downloaded to AppData cache -->
     </audio>
-    <script src="script.js"></script>
+    <script src="script-core.js"></script>
+    <script src="script-fx.js"></script>
+    <script src="script-nav.js"></script>
+    <script src="script-home.js"></script>
+    <script src="script-misc.js"></script>
+    <script src="script-perf.js"></script>
 </body>
 </html>

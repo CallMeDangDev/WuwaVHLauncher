@@ -83,15 +83,25 @@ function initParticles() {
 }
 
 /* ===========================================
-   NAV WAVE â€” Oscillation / Sound-Wave Indicator
+   NAV WAVE — Oscillation / Sound-Wave Indicator
    =========================================== */
 let navWaveT = 0;      // global time tick
+
+// Indicator lerp state
+let _indCurL = 0, _indCurW = 0;   // currently rendered bounds (px from nav left)
+let _indTgtL = 0, _indTgtW = 0;   // target bounds
+let _indReady = false;
 
 function initNavWave() {
     const canvas = document.getElementById('navWaveCanvas');
     if (!canvas) return;
-    // height is set by updateNavIndicator; just start the loop
     (function loop() {
+        if (_indReady) {
+            // Exponential lerp — ~0.10 per frame at 60 fps ≈ smooth 350 ms settle
+            const k = 0.10;
+            _indCurL += (_indTgtL - _indCurL) * k;
+            _indCurW += (_indTgtW - _indCurW) * k;
+        }
         drawNavWave(canvas);
         navWaveT++;
         requestAnimationFrame(loop);
@@ -102,45 +112,42 @@ function drawNavWave(canvas) {
     const ctx = canvas.getContext('2d');
     const W = canvas.width;
     const H = canvas.height;
-    if (W <= 0 || H <= 0) return;
+    if (W <= 0 || H <= 0 || !_indReady) return;
 
     ctx.clearRect(0, 0, W, H);
 
+    const cL = _indCurL;        // indicator left edge (lerped)
+    const cW = _indCurW;        // indicator width (lerped)
+    if (cW <= 1) return;
+
     const t = navWaveT;
 
-    // Arch envelope: sin(Ï€x/W) â†’ 0 at both tips, 1 at center â†’ pointed ends
-    const arch = x => Math.sin(Math.PI * x / W);
+    // Arch envelope relative to indicator region: 0 at edges, 1 at centre
+    const arch = x => Math.sin(Math.PI * (x - cL) / cW);
 
     // Slow breathe
     const breathe = 0.88 + 0.12 * Math.sin(t * 0.010);
 
-    // Tall parabolic arch â€” H*0.44 â‰ˆ Â±31px in 70px bar (fills most of bar height)
+    // Tall parabolic arch
     const MAIN_AMP = H * 0.44;
 
-    // N stacked layers per side (inner â†’ outer).
-    // Each layer i: scale = (i+1)/N â†’ outermost layer = full amp, innermost = small.
-    // Layers stack up like a waveform spectrum / audio oscilloscope.
     const N = 6;
 
     const drawArc = (side) => {
-        // side = +1 (bottom) or -1 (top)
         for (let i = 0; i < N; i++) {
-            const scale  = (i + 1) / N;                    // 0.17 â€¦ 1.00
+            const scale  = (i + 1) / N;
             const amp    = MAIN_AMP * scale * breathe;
-
-            // Each layer has unique oscillation: freq & phase vary by layer
             const freq   = 0.044 + i * 0.007;
             const speed  = 0.030 + i * 0.004;
             const phase  = i * 0.85 + (side > 0 ? Math.PI : 0);
-            const oscAmp = H * 0.040 * scale;              // oscillation grows with layer
+            const oscAmp = H * 0.040 * scale;
 
             const yLine  = x =>
                 H * 0.50
                 + side * amp * arch(x)
-                + oscAmp * arch(x) * Math.sin(x * freq + t * speed + phase);
+                + oscAmp * arch(x) * Math.sin((x - cL) * freq + t * speed + phase);
 
-            // Outermost layers: bright & thick; inner layers: dim & thin
-            const outerRatio = scale;                       // 0 â†’ 1
+            const outerRatio = scale;
             const op   = 0.15 + outerRatio * 0.82;
             const lw   = 0.5  + outerRatio * 1.8;
             const blur = 2    + outerRatio * 14;
@@ -149,8 +156,8 @@ function drawNavWave(canvas) {
             ctx.shadowColor = `rgba(242,210,100,${op * 0.75})`;
             ctx.shadowBlur  = blur;
             ctx.beginPath();
-            for (let x = 0; x <= W; x++) {
-                x === 0 ? ctx.moveTo(x, yLine(x)) : ctx.lineTo(x, yLine(x));
+            for (let x = cL; x <= cL + cW; x++) {
+                x === cL ? ctx.moveTo(x, yLine(x)) : ctx.lineTo(x, yLine(x));
             }
             ctx.strokeStyle = `rgba(242,212,100,${op})`;
             ctx.lineWidth   = lw;
@@ -177,31 +184,91 @@ function initTopNav() {
     });
 }
 
+let _adminCheckDone = false;
+
+async function checkAdminIfNeeded() {
+    if (_adminCheckDone || !S.gamePath || !bridge()) return;
+    _adminCheckDone = true;
+    try {
+        const result = await bridge().CheckGameFolderWriteAccess(S.gamePath);
+        if (result !== 'admin_required') return;
+
+        // Show the dedicated admin modal
+        const pathEl = document.getElementById('adminModalPath');
+        if (pathEl) pathEl.textContent = S.gamePath;
+
+        const ok = await showAdminModal();
+        if (ok && bridge()) {
+            await gfxSaveCache();
+            bridge().RestartAsAdmin();
+        }
+    } catch(e) {}
+}
+
+function showAdminModal() {
+    return new Promise(resolve => {
+        const modal  = document.getElementById('adminModal');
+        const btnOk  = document.getElementById('adminModalOk');
+        const btnCan = document.getElementById('adminModalCancel');
+        modal.style.display = 'flex';
+        const cleanup = (result) => {
+            modal.style.display = 'none';
+            btnOk.removeEventListener('click', onOk);
+            btnCan.removeEventListener('click', onCancel);
+            resolve(result);
+        };
+        const onOk     = () => cleanup(true);
+        const onCancel = () => cleanup(false);
+        btnOk.addEventListener('click', onOk);
+        btnCan.addEventListener('click', onCancel);
+    });
+}
+
 function switchPage(page) {
     S.page = page;
     const isHome = page === 'home';
     document.querySelectorAll('.top-nav__item').forEach(b =>
         b.classList.toggle('active', b.dataset.page === page));
-    document.getElementById('rightPanel').style.display      = isHome ? '' : 'none';
-    document.getElementById('pageFontCreator').style.display = isHome ? 'none' : '';
+    document.getElementById('rightPanel').style.display        = isHome                  ? '' : 'none';
+    document.getElementById('pageFontCreator').style.display   = page === 'font-creator' ? '' : 'none';
+    document.getElementById('pageGraphics').style.display      = page === 'graphics'     ? '' : 'none';
+    // Hide bottom-left widgets when not on home to avoid overlap
+    const ap = document.getElementById('audioPlayer');
+    const uc = document.getElementById('updateCountdown');
+    if (ap) ap.style.display = isHome ? '' : 'none';
+    if (uc) uc.style.display = isHome ? '' : 'none';
     updateNavIndicator();
-    if (!isHome) fcRefreshStatus();
+    if (page === 'font-creator') { fcRefreshStatus(); checkAdminIfNeeded(); }
+    if (page === 'graphics')     { gfxInit(); checkAdminIfNeeded(); }
 }
 
 function updateNavIndicator() {
     const active = document.querySelector('.top-nav__item.active');
-    const ind    = document.getElementById('topNavIndicator');
     const nav    = document.getElementById('topNav');
-    if (!active || !ind || !nav) return;
-    const w = active.offsetWidth;
-    const h = nav.offsetHeight;
-    ind.style.width = w + 'px';
-    ind.style.left  = active.offsetLeft + 'px';
-    // Keep canvas pixel dimensions in sync with full bar height
+    if (!active || !nav) return;
+
+    const navRect = nav.getBoundingClientRect();
+    const actRect = active.getBoundingClientRect();
+
+    _indTgtL = actRect.left - navRect.left;
+    _indTgtW = actRect.width;
+
+    if (!_indReady) {
+        // First call: snap immediately, no animation
+        _indCurL = _indTgtL;
+        _indCurW = _indTgtW;
+        _indReady = true;
+    }
+
+    // Resize canvas to cover the full nav bar (only once / on layout change)
     const canvas = document.getElementById('navWaveCanvas');
     if (canvas) {
-        canvas.width  = w; canvas.style.width  = w + 'px';
-        canvas.height = h; canvas.style.height = h + 'px';
+        const fw = Math.round(navRect.width);
+        const fh = Math.round(navRect.height);
+        if (canvas.width !== fw || canvas.height !== fh) {
+            canvas.width  = fw;  canvas.style.width  = fw + 'px';
+            canvas.height = fh;  canvas.style.height = fh + 'px';
+        }
     }
 }
 
@@ -322,6 +389,8 @@ function startInstall() {
     btn.classList.add('installing','disabled');
     txt.textContent = 'Đang cài đặt...';
     prog.style.display = '';
+    const dx11Row = document.getElementById('dx11Row');
+    if (dx11Row) dx11Row.style.display = 'none';
 
     if (bridge()) {
         bridge().StartInstallation(S.gamePath, S.cfg.vhMode, S.cfg.backup);
@@ -373,6 +442,8 @@ function installDone() {
     btn.classList.add('installed');
     txt.textContent = 'Chơi Game';
     prog.style.display = 'none';
+    const dx11Row = document.getElementById('dx11Row');
+    if (dx11Row) dx11Row.style.display = '';
     toast('Cài đặt Việt Hoá thành công!','ok');
 }
 
@@ -396,6 +467,8 @@ window.onInstallError = msg => {
     btn.classList.remove('installing','disabled');
     txt.textContent = 'Thử lại';
     prog.style.display = 'none';
+    const dx11Row = document.getElementById('dx11Row');
+    if (dx11Row) dx11Row.style.display = 'none';
     toast('Lỗi: '+msg,'err');
 };
 window.onAdminRequired = () => {
@@ -406,6 +479,8 @@ window.onAdminRequired = () => {
     btn.classList.remove('installing','disabled');
     txt.textContent = 'Khởi động lại (Admin)';
     prog.style.display = 'none';
+    const dx11Row = document.getElementById('dx11Row');
+    if (dx11Row) dx11Row.style.display = 'none';
     
     // Change button behavior temporarily for restart
     const oldHandler = handleStart;
@@ -598,6 +673,472 @@ async function loadVersions() {
 }
 
 let _launcherUpdateUrl = '';
+
+/* ===========================================
+   ĐỒ HOẠ PAGE — Data-driven settings UI
+   =========================================== */
+const GFX_CATS = [
+    { id:'texture', title:'TEXTURE & LOD', items:[
+        {k:'r.MipMapLODBias', l:'Anisotropic Filtering (LOD Bias)', d:'Khử răng cưa dị hướng. Giá trị càng thấp texture càng nét nhưng nặng hơn.', t:'slider', v:-2, min:-3, max:0, step:1, pw:3, pi:true},
+        {k:'r.Streaming.MinBoost', l:'Ưu tiên Texture HD', d:'Ưu tiên tải texture độ phân giải cao. Số càng cao game càng ưu tiên texture nét.', w:'Set quá cao sẽ chạm trần VRAM gây giật lag (đặc biệt ở Lahai Roi).', t:'slider', v:2.0, min:1.0, max:3.0, step:0.5, pw:3},
+        {k:'r.Streaming.PoolSize', l:'Giới hạn VRAM cho Texture', d:'Dung lượng VRAM tối đa cho texture streaming (MB). 0 = không giới hạn.', w:'Set 0 (Unlimited) sẽ dùng rất nhiều VRAM, máy yếu VRAM có thể crash.', t:'select', v:1536, opts:[{v:0,l:'Unlimited'},{v:1536,l:'1.5 GB'},{v:2048,l:'2 GB'},{v:4096,l:'4 GB'}], pw:4},
+        {k:'r.Streaming.UsingKuroStreamingPriority', l:'Streaming ưu tiên (Kuro)', d:'Mức độ ưu tiên streaming riêng của Kuro.', w:'0 sửa lỗi áo giáp Aemeath nhưng Smartprint Cube Reboot load chậm hơn.', t:'select', v:0, opts:[{v:0,l:'Tắt'},{v:1,l:'Chỉ giữ lại'},{v:2,l:'Chỉ tải'},{v:3,l:'Đầy đủ'}], pw:2},
+        {k:'r.streaming.MeshMaxKeepMips', l:'Mesh Mipmap giữ lại', d:'Số lượng Mipmaps mesh giữ trong bộ nhớ. Mặc định engine = 8.', t:'slider', v:15, min:8, max:15, step:1, pw:2},
+        {k:'r.streaming.TextureMaxKeepMips', l:'Texture Mipmap giữ lại', d:'Số lượng Mipmaps texture giữ trong bộ nhớ. Mặc định engine = 15.', t:'slider', v:15, min:8, max:15, step:1, pw:2},
+        {k:'r.StaticMeshLODDistanceScale', l:'Khoảng cách LOD vật thể', d:'Tỉ lệ khoảng cách chuyển LOD. Càng thấp vật thể ở xa càng chi tiết.', w:'Không nên để dưới 0.5 — gây nhấp nháy texture mặt đất.', t:'slider', v:0.7, min:0.5, max:1.0, step:0.1, pw:3, pi:true},
+        {k:'wp.Runtime.PlannedLoadingRangeScale', l:'Khoảng cách load vật thể', d:'Số càng cao vật thể và texture ở xa load càng tốt. Giới hạn khoảng 1.0.', t:'slider', v:1.0, min:0.5, max:1.0, step:0.1, pw:2},
+    ]},
+    { id:'viewdist', title:'TẦM NHÌN', items:[
+        {k:'foliage.LODDistanceScale', l:'Tầm nhìn cây cỏ', d:'Tỉ lệ hiển thị thảm thực vật/cây cỏ ở xa.', w:'1 = 97 FPS | 3 = 93 FPS | 5 = 85 FPS (test ở Septimont).', t:'slider', v:2, min:1, max:5, step:1, pw:5},
+        {k:'r.Kuro.Foliage.GrassCullDistanceMax', l:'Khoảng cách xóa cỏ', d:'Khoảng cách tối đa trước khi cỏ bị xóa khỏi tầm nhìn.', t:'input', v:20000, min:5000, max:50000, pw:4},
+        {k:'r.Kuro.Foliage.Grass3_0CullDistanceMax', l:'Khoảng cách xóa cỏ 3.0', d:'Khoảng cách tối đa cỏ kiểu mới (3.0) bị xóa.', t:'input', v:20000, min:5000, max:50000, pw:4},
+    ]},
+    { id:'ssr', title:'PHẢN CHIẾU SSR', items:[
+        {k:'r.SSR.Quality', l:'Chất lượng SSR', d:'Chất lượng phản chiếu không gian màn hình (Screen Space Reflections).', t:'select', v:3, opts:[{v:0,l:'Tắt'},{v:1,l:'Thấp'},{v:2,l:'Trung bình'},{v:3,l:'Cao'},{v:4,l:'Rất cao'}], pw:5},
+        {k:'r.SSR.MaxRoughness', l:'Độ nhám tối đa SSR', d:'Mức roughness tối đa để SSR bắt đầu mờ đi. 1.0 = phản chiếu mọi bề mặt.', t:'slider', v:1.0, min:0.0, max:1.0, step:0.1, pw:3},
+        {k:'r.SSR.HalfResSceneColor', l:'SSR nửa độ phân giải', d:'1 = dùng nửa độ phân giải (nhẹ hơn). 0 = full (đẹp hơn).', t:'toggle', v:0, pw:3, pi:true},
+    ]},
+    { id:'shadow', title:'BÓNG ĐỔ', items:[
+        {k:'r.Shadow.RadiusThreshold', l:'Ngưỡng bóng đổ', d:'Càng thấp thì bóng càng nhiều/rõ.', t:'slider', v:0.01, min:0.01, max:0.10, step:0.01, pw:3, pi:true},
+        {k:'r.Shadow.MaxCSMResolution', l:'Độ phân giải Shadow Map (CSM)', d:'Độ phân giải cascade shadow map. Số càng cao bóng càng nét.', t:'select', v:2048, opts:[{v:512,l:'512'},{v:1024,l:'1024'},{v:2048,l:'2048'},{v:4096,l:'4096'}], pw:5},
+        {k:'r.Shadow.PerObjectResolutionMax', l:'Shadow PerObject (Max)', d:'Độ phân giải tối đa bóng nhân vật/vật thể. Mặc định game khá thấp nên nhìn răng cưa.', t:'select', v:1024, opts:[{v:256,l:'256'},{v:512,l:'512'},{v:1024,l:'1024'},{v:2048,l:'2048'},{v:4096,l:'4096'}], pw:4},
+        {k:'r.Shadow.PerObjectResolutionMin', l:'Shadow PerObject (Min)', d:'Độ phân giải tối thiểu bóng nhân vật/vật thể.', t:'select', v:1024, opts:[{v:256,l:'256'},{v:512,l:'512'},{v:1024,l:'1024'},{v:2048,l:'2048'},{v:4096,l:'4096'}], pw:3},
+    ]},
+    { id:'ao', title:'AMBIENT OCCLUSION', items:[
+        {k:'r.AODownsampleFactor', l:'Độ phân giải DFAO', d:'1 = full (đẹp/nặng), 2 = nửa (mặc định engine).', t:'select', v:2, opts:[{v:1,l:'Full (Nặng)'},{v:2,l:'Nửa (Nhẹ)'}], pw:3, pi:true},
+        {k:'r.AmbientOcclusion.Intensity', l:'Cường độ AO', d:'Cường độ đổ bóng ở góc kẹt/vật thể tiếp xúc. Giá trị lớn hơn = bóng đậm hơn.', t:'slider', v:0.9, min:0.0, max:2.0, step:0.1, pw:1},
+    ]},
+    { id:'fog', title:'SƯƠNG MÙ & MÂY', items:[
+        {k:'r.KuroVolumeCloudEnable', l:'Mây thể tích', d:'Bật/tắt đám mây/sương mù sát mặt đất tại khu vực map mới.', w:'Tắt đi giúp tăng FPS và nhìn rõ hơn.', t:'toggle', v:0, pw:4},
+        {k:'r.SSFS', l:'Sương mù không gian', d:'Screen Space Fog Scattering — hiệu ứng tán xạ sương mù.', t:'toggle', v:1, pw:2},
+    ]},
+    { id:'cull', title:'CULLING & TỐI ƯU', items:[
+        {k:'r.HZBOcclusion', l:'HZB Occlusion Culling', d:'Đổi thuật toán culling sang HZB. Sửa lỗi đốm trắng khi xoay camera.', w:'⚠ SẼ LÀM TỤT FPS MẠNH (~10 FPS ở Ragunna). Máy yếu không nên dùng.', t:'toggle', v:1, pw:6},
+        {k:'r.ParallelFrustumCull', l:'Parallel Frustum Cull', d:'Tối ưu hóa CPU khi dựng hình. Bật để tăng hiệu năng.', t:'toggle', v:1, pw:0},
+        {k:'r.ParallelOcclusionCull', l:'Parallel Occlusion Cull', d:'Tối ưu hóa CPU cho occlusion culling.', t:'toggle', v:1, pw:0},
+        {k:'r.ScreenSizeCullRatioFactor', l:'Tỉ lệ cull theo kích thước', d:'Số càng lớn vật thể nhỏ ở xa bị loại bỏ nhiều hơn → tăng FPS.', t:'slider', v:3, min:1, max:5, step:1, pw:2, pi:true},
+    ]},
+    { id:'post', title:'HẬU KỲ & LỌC MÀU', items:[
+        {k:'r.KuroTonemapping', l:'Bộ lọc màu (Tonemapping)', d:'Kiểu lọc màu tổng thể của game.', t:'select', v:3, opts:[{v:0,l:'Tắt'},{v:1,l:'Kiểu Genshin'},{v:2,l:'Kiểu Death Stranding'},{v:3,l:'Kuro (Mặc định)'}], pw:0},
+        {k:'r.Kuro.KuroEnableFFTBloom', l:'FFT Bloom (Lahai-Roi)', d:'Hiệu ứng chói sáng kiểu mới ở Lahai-Roi.', t:'toggle', v:0, pw:3},
+        {k:'r.Kuro.KuroEnableToonFFTBloom', l:'Toon FFT Bloom', d:'Hiệu ứng chói sáng cho nhân vật toon.', t:'toggle', v:0, pw:3},
+        {k:'r.Kuro.KuroBloomStreak', l:'Bloom Streak', d:'Vệt chói sáng. Tắt giúp giảm nhẹ độ chói.', t:'toggle', v:0, pw:1},
+        {k:'r.EnableLensflareSceneSample', l:'Lens Flare', d:'Hiệu ứng lóa ống kính.', t:'toggle', v:0, pw:1},
+        {k:'r.DepthOfFieldQuality', l:'Depth of Field', d:'Chất lượng làm mờ hậu cảnh.', t:'select', v:0, opts:[{v:0,l:'Tắt'},{v:1,l:'Thấp'},{v:2,l:'Cao'},{v:3,l:'Rất cao'},{v:4,l:'Cực cao'}], pw:3},
+        {k:'r.SceneColorFringeQuality', l:'Chromatic Aberration', d:'Viền màu quanh mép màn hình. Tắt giúp hình ảnh trong trẻo hơn.', t:'toggle', v:0, pw:0},
+        {k:'r.Tonemapper.Quality', l:'Chất lượng Tonemapper', d:'0 = Tắt hết. 1 = FilmContrast (sáng hơn, tắt nhiễu hạt + tối góc).', t:'select', v:1, opts:[{v:0,l:'Tắt'},{v:1,l:'FilmContrast'},{v:2,l:'Vignette'},{v:4,l:'Vignette + Noise'}], pw:1},
+    ]},
+    { id:'fx', title:'HIỆU ỨNG & KHÁC', items:[
+        {k:'a.URO.ForceAnimRate', l:'Cập nhật Animation NPC', d:'1 = update mỗi khung hình, sửa giật NPC ở xa. 0 = mặc định engine.', w:'Bật sẽ tốn CPU hơn.', t:'toggle', v:1, pw:2},
+        {k:'r.Upscale.Quality', l:'Chất lượng Upscale UI', d:'Chất lượng upscale giao diện. 3 = nét nhất.', w:'Không dùng số lớn hơn 3 — gây glitch UI.', t:'select', v:3, opts:[{v:0,l:'0'},{v:1,l:'1'},{v:2,l:'2'},{v:3,l:'3 (Nét nhất)'}], pw:1},
+        {k:'r.VRS.EnableMaterial', l:'VRS Material', d:'Variable Rate Shading cho chất liệu. Tắt = ổn định hơn trên một số GPU.', t:'toggleStr', v:'false', pw:2, pi:true},
+        {k:'r.VRS.EnableMesh', l:'VRS Mesh', d:'Variable Rate Shading cho mesh. Tắt = ổn định hơn.', t:'toggleStr', v:'false', pw:2, pi:true},
+        {k:'r.LightShaftDownSampleFactor', l:'Độ phân giải tia sáng', d:'1 = nét nhất. Số càng lớn chất lượng càng thấp (nhẹ hơn).', t:'slider', v:1, min:1, max:8, step:1, pw:2, pi:true},
+        {k:'r.KuroVolumetricLight.ColorMaskDownSampleFactor', l:'Volumetric Light (Color)', d:'1 = nét nhất. Số càng lớn chất lượng càng thấp.', t:'slider', v:1, min:1, max:4, step:1, pw:2, pi:true},
+        {k:'r.KuroVolumetricLight.DownSampleFactor', l:'Volumetric Light (Main)', d:'1 = nét nhất. Số càng lớn chất lượng càng thấp.', t:'slider', v:1, min:1, max:4, step:1, pw:2, pi:true},
+        {k:'r.Kuro.InteractionEffect.UseCppWaterEffect', l:'Hiệu ứng gợn nước', d:'Hiệu ứng gợn nước khi bay thấp / xài skill.', t:'toggle', v:1, pw:1},
+        {k:'foliage.DensityScaleLOD.DrawCallOptimize', l:'Tối ưu Draw Call lá cây', d:'Bật để tối ưu CPU khi render mật độ lá cây.', t:'toggle', v:1, pw:0},
+        {k:'wp.Runtime.SoraGridBlackListHeight', l:'Chiều cao ánh sáng (bay)', d:'Chiều cao trước khi ánh sáng/vật thể biến mất khi bay.', t:'input', v:20000, min:5000, max:50000, pw:1},
+        {k:'r.Kuro.NpcDisappearDistance', l:'Khoảng cách NPC biến mất', d:'Set cao để NPC không biến mất quá sớm.', t:'input', v:20000, min:1000, max:50000, pw:2},
+        {k:'Kuro.Blueprint.EnableGameBudget', l:'Blueprint Game Budget', d:'Quản lý giới hạn thời gian chạy Blueprint.', w:'⚠ Tắt sửa lỗi animation lag Lahai-Roi, NHƯNG hỏng vật tương tác ở Honami (ô/dù) và Lahai-Roi (quả bóng).', t:'toggleStr', v:'false', pw:2, pi:true},
+    ]},
+    { id:'nvidia', title:'NVIDIA (RTX)', items:[
+        {k:'t.Streamline.Reflex.HandleMaxTickRate', l:'Reflex Handle Tick Rate', d:'Bật để Reflex quản lý tick rate.', t:'toggleStr', v:'true', pw:0},
+        {k:'t.Streamline.Reflex.Enable', l:'NVIDIA Reflex', d:'Giảm độ trễ đầu vào.', w:'Không hoạt động trên RTX 40/50 series khi bật Frame Gen.', t:'toggle', v:1, pw:0},
+        {k:'t.Streamline.Reflex.Mode', l:'Reflex Mode', d:'1 = Độ trễ thấp, 2 = Thấp + Boost.', t:'select', v:1, opts:[{v:1,l:'Thấp'},{v:2,l:'Thấp + Boost'}], pw:1},
+        {k:'r.NGX.DLAA.Enable', l:'DLAA (Anti-aliasing NVIDIA)', d:'Ép bật DLAA — khử răng cưa chất lượng cao. Rất ngốn GPU.', w:'Bật sẽ vô hiệu hoá DLSS Quality/Balanced/Performance trong game.', t:'toggle', v:1, pw:6},
+    ]},
+    { id:'lumen', title:'RAY TRACING & LUMEN', s:'RendererSettings', items:[
+        {k:'r.Lumen.ScreenProbeGather.Temporal.DistanceThreshold', l:'Lumen Temporal Threshold', d:'Giá trị thấp = ít ghosting, nhưng nhiều flickering hơn.', t:'slider', v:0.03, min:0.01, max:0.10, step:0.01, pw:2, pi:true},
+        {k:'r.Lumen.Reflections.AsyncCompute', l:'Async Compute (Reflections)', d:'Bật có thể cải thiện FPS trên GPU hiện đại.', t:'toggle', v:1, pw:0},
+        {k:'r.Lumen.Reflections.ScreenTraces', l:'Screen Traces', d:'Dò tia màn hình cho phản chiếu Lumen.', w:'Tắt sửa lỗi bóng vỡ ô vuông, nhưng mất phản chiếu nước/gương.', t:'toggle', v:0, pw:3},
+        {k:'r.Lumen.Reflections.SmoothBias', l:'Độ bóng phản chiếu', d:'0.0 → 1.0. Set 1.0 = bề mặt bóng loáng như gương.', t:'slider', v:1.0, min:0.0, max:1.0, step:0.1, pw:2},
+    ]},
+];
+
+let _gfxValues = {};
+let _gfxDefaults = {};
+let _gfxBuilt = false;
+let _gfxCacheHasData = false; // true once cache was successfully loaded from disk
+let _gfxFileValues = null; // values loaded from disk (null = not loaded yet)
+
+async function gfxInit() {
+    const hint = document.getElementById('gfxConfigPath');
+    if (hint) {
+        hint.textContent = S.gamePath
+            ? S.gamePath + '\\Client\\Saved\\Config\\WindowsNoEditor'
+            : 'chưa chọn thư mục game';
+    }
+    if (!_gfxBuilt) gfxBuild();
+    // Always load cache first (source of truth for UI), then load disk only to get path hint + fill uncached keys
+    await gfxLoadCache();
+    if (S.gamePath && bridge()) await gfxLoadFromDisk();
+}
+
+async function gfxLoadCache() {
+    if (!bridge()) return;
+    try {
+        const raw = await bridge().ReadGfxCache();
+        if (!raw) return;
+        const cached = JSON.parse(raw);
+        let found = false;
+        GFX_CATS.forEach(cat => cat.items.forEach(it => {
+            if (cached.hasOwnProperty(it.k)) {
+                _gfxValues[it.k] = cached[it.k];
+                found = true;
+            }
+        }));
+        if (found) {
+            _gfxCacheHasData = true;
+            gfxSyncDOM();
+            gfxUpdatePerf();
+            gfxUpdatePresetHighlight();
+        }
+    } catch(e) {}
+}
+
+async function gfxSaveCache() {
+    if (!bridge()) return;
+    try {
+        const obj = {};
+        GFX_CATS.forEach(cat => cat.items.forEach(it => {
+            obj[it.k] = _gfxValues[it.k];
+        }));
+        await bridge().WriteGfxCache(JSON.stringify(obj));
+    } catch(e) {}
+}
+
+function gfxBuild() {
+    _gfxBuilt = true;
+    const container = document.getElementById('gfxScroll');
+    if (!container) return;
+    container.innerHTML = '';
+
+    // Initialize values to defaults
+    GFX_CATS.forEach(cat => cat.items.forEach(it => {
+        _gfxDefaults[it.k] = it.v;
+        _gfxValues[it.k] = it.v;
+    }));
+
+    GFX_CATS.forEach(cat => {
+        const catEl = document.createElement('div');
+        catEl.className = 'gfx-cat';
+
+        // Category header (collapsible)
+        const head = document.createElement('div');
+        head.className = 'gfx-cat__head';
+        head.innerHTML = '<svg viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>' + cat.title;
+        head.addEventListener('click', () => catEl.classList.toggle('collapsed'));
+        catEl.appendChild(head);
+
+        const body = document.createElement('div');
+        body.className = 'gfx-cat__body';
+
+        cat.items.forEach(it => {
+            const row = document.createElement('div');
+            row.className = 'gfx-row';
+
+            // Info side
+            const info = document.createElement('div');
+            info.className = 'gfx-row__info';
+            let html = `<div class="gfx-row__label">${it.l}<span class="gfx-row__key">${it.k}</span></div>`;
+            html += `<div class="gfx-row__desc">${it.d}</div>`;
+            if (it.w) html += `<div class="gfx-row__warn">${it.w}</div>`;
+            info.innerHTML = html;
+            row.appendChild(info);
+
+            // Control side
+            const ctrl = document.createElement('div');
+            ctrl.className = 'gfx-row__ctrl';
+            ctrl.appendChild(gfxMakeCtrl(it));
+            row.appendChild(ctrl);
+
+            body.appendChild(row);
+        });
+
+        catEl.appendChild(body);
+        container.appendChild(catEl);
+    });
+
+    gfxUpdatePerf();
+
+    // Bind footer buttons
+    document.getElementById('gfxResetBtn')?.addEventListener('click', gfxReset);
+    document.getElementById('gfxApplyBtn')?.addEventListener('click', gfxApply);
+}
+
+function gfxMakeCtrl(it) {
+    const wrap = document.createElement('span');
+
+    if (it.t === 'toggle' || it.t === 'toggleStr') {
+        const label = document.createElement('label');
+        label.className = 'gfx-toggle';
+        const inp = document.createElement('input');
+        inp.type = 'checkbox';
+        inp.dataset.key = it.k;
+        inp.dataset.type = it.t;
+        if (it.t === 'toggleStr') {
+            inp.checked = (String(it.v) === 'true');
+        } else {
+            inp.checked = !!it.v;
+        }
+        const track = document.createElement('span');
+        track.className = 'gfx-toggle__track';
+        const valSpan = document.createElement('span');
+        valSpan.className = 'gfx-toggle__label';
+        valSpan.textContent = inp.checked ? 'ON' : 'OFF';
+        inp.addEventListener('change', () => {
+            if (it.t === 'toggleStr') {
+                _gfxValues[it.k] = inp.checked ? 'true' : 'false';
+            } else {
+                _gfxValues[it.k] = inp.checked ? 1 : 0;
+            }
+            valSpan.textContent = inp.checked ? 'ON' : 'OFF';
+            gfxOnChange();
+        });
+        label.appendChild(inp);
+        label.appendChild(track);
+        label.appendChild(valSpan);
+        wrap.appendChild(label);
+
+    } else if (it.t === 'slider') {
+        const sw = document.createElement('div');
+        sw.className = 'gfx-slider-wrap';
+        const range = document.createElement('input');
+        range.type = 'range';
+        range.className = 'gfx-slider';
+        range.min = it.min; range.max = it.max; range.step = it.step;
+        range.value = it.v;
+        range.dataset.key = it.k;
+        const val = document.createElement('span');
+        val.className = 'gfx-slider__val';
+        val.textContent = gfxFmt(it.v, it.step);
+        range.addEventListener('input', () => {
+            const n = parseFloat(range.value);
+            _gfxValues[it.k] = n;
+            val.textContent = gfxFmt(n, it.step);
+            gfxOnChange();
+        });
+        sw.appendChild(range);
+        sw.appendChild(val);
+        wrap.appendChild(sw);
+
+    } else if (it.t === 'select') {
+        const sel = document.createElement('select');
+        sel.className = 'gfx-select';
+        sel.dataset.key = it.k;
+        it.opts.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.v;
+            opt.textContent = o.l;
+            if (o.v === it.v) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        sel.addEventListener('change', () => {
+            _gfxValues[it.k] = gfxParseNum(sel.value);
+            gfxOnChange();
+        });
+        wrap.appendChild(sel);
+
+    } else if (it.t === 'input') {
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.className = 'gfx-input';
+        inp.dataset.key = it.k;
+        inp.min = it.min; inp.max = it.max;
+        inp.value = it.v;
+        inp.addEventListener('change', () => {
+            let n = parseFloat(inp.value);
+            if (isNaN(n)) n = it.v;
+            n = Math.max(it.min, Math.min(it.max, n));
+            inp.value = n;
+            _gfxValues[it.k] = n;
+            gfxOnChange();
+        });
+        wrap.appendChild(inp);
+    }
+
+    return wrap;
+}
+
+function gfxFmt(v, step) {
+    return step < 1 ? v.toFixed(2) : String(v);
+}
+
+function gfxParseNum(s) {
+    const n = parseFloat(s);
+    return isNaN(n) ? s : n;
+}
+
+function gfxOnChange() {
+    gfxUpdatePerf();
+    gfxSaveCache();
+    // Enable Apply button always once gfx page is active
+    const btn = document.getElementById('gfxApplyBtn');
+    if (btn) btn.disabled = false;
+}
+
+/* ── Performance calculator ── */
+function gfxNormItem(it) {
+    const v = _gfxValues[it.k];
+    let norm = 0;
+    if (it.t === 'toggle') {
+        norm = v ? 1 : 0;
+    } else if (it.t === 'toggleStr') {
+        norm = (String(v) === 'true') ? 1 : 0;
+    } else if (it.t === 'slider' || it.t === 'input') {
+        const range = (it.max ?? 1) - (it.min ?? 0);
+        norm = range > 0 ? (v - (it.min ?? 0)) / range : 0;
+    } else if (it.t === 'select' && it.opts) {
+        const idx = it.opts.findIndex(o => o.v === v);
+        norm = it.opts.length > 1 ? Math.max(0, idx) / (it.opts.length - 1) : 0;
+    }
+    if (it.pi) norm = 1 - norm;
+    return Math.max(0, Math.min(1, norm));
+}
+
+function gfxCalcRawPct() {
+    let totalCost = 0, totalWeight = 0;
+    GFX_CATS.forEach(cat => cat.items.forEach(it => {
+        if (!it.pw) return;
+        totalCost += it.pw * gfxNormItem(it);
+        totalWeight += it.pw;
+    }));
+    return totalWeight > 0 ? totalCost / totalWeight : 0;
+}
+
+function gfxUpdatePerf() {
+    const raw = gfxCalcRawPct();
+    const pct = raw * 100;           // already 0-1 normalised
+    const display = Math.round(pct);
+    const fill = document.getElementById('gfxPerfFill');
+    const txt  = document.getElementById('gfxPerfPct');
+    const hue = Math.max(0, 120 - pct * 0.9);
+    const color = `hsl(${hue}, 72%, 55%)`;
+    if (fill) {
+        fill.style.width = Math.min(100, pct) + '%';
+        fill.style.background = `linear-gradient(90deg, hsl(${Math.min(120,hue+30)}, 72%, 45%), ${color})`;
+        fill.style.boxShadow = `0 0 12px ${color.replace(')', ',0.45)')}`;
+    }
+    if (txt) {
+        txt.textContent = display + '%';
+        txt.style.color = color;
+    }
+}
+
+function gfxReset() {
+    GFX_CATS.forEach(cat => cat.items.forEach(it => {
+        _gfxValues[it.k] = it.v;
+    }));
+    gfxSyncDOM();
+    gfxOnChange();
+}
+
+async function gfxApply() {
+    if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
+    if (!bridge()) { toast('Demo: không thể ghi file.', 'info'); return; }
+
+    // Build settings JSON from current values
+    const settings = {};
+    GFX_CATS.forEach(cat => cat.items.forEach(it => {
+        settings[it.k] = String(_gfxValues[it.k]);
+    }));
+
+    const result = await bridge().WriteEngineIni(S.gamePath, JSON.stringify(settings));
+
+    if (result === 'ok') {
+        _gfxFileValues = { ..._gfxValues };
+        gfxSaveCache();
+        toast('Đã lưu Engine.ini thành công!', 'ok');
+    } else if (result === 'not_found') {
+        toast('Không tìm thấy Engine.ini. Vui lòng vào game ít nhất 1 lần để file được tạo tự động.', 'err');
+    } else if (result === 'admin_required') {
+        const ok = await showConfirm('Không có quyền ghi file Engine.ini.\nKhởi động lại Launcher với quyền Admin?');
+        if (ok && bridge()) {
+            await gfxSaveCache(); // ensure latest settings are persisted before restart
+            bridge().RestartAsAdmin();
+        }
+    } else {
+        toast('Lỗi ghi file: ' + result, 'err');
+    }
+}
+
+async function gfxLoadFromDisk() {
+    if (!bridge()) return;
+    try {
+        const json = await bridge().ReadEngineIni(S.gamePath);
+        const resp = JSON.parse(json);
+
+        if (resp.status === 'not_found') {
+            toast('Không tìm thấy Engine.ini. Hãy vào game 1 lần để file được tạo.', 'info');
+            return;
+        }
+        if (resp.status === 'error') {
+            toast('Lỗi đọc Engine.ini: ' + (resp.message || ''), 'err');
+            return;
+        }
+
+        // Update path hint (always)
+        const hint = document.getElementById('gfxConfigPath');
+        if (hint && resp.path) hint.textContent = resp.path;
+
+        // Only apply file values when there is no cache — cache is the source of truth
+        if (_gfxCacheHasData) return;
+
+        // Apply file values to UI (only for keys we manage)
+        const data = resp.data || {};
+        _gfxFileValues = {};
+        GFX_CATS.forEach(cat => cat.items.forEach(it => {
+            const fileKey = Object.keys(data).find(k => k.toLowerCase() === it.k.toLowerCase());
+            if (fileKey !== undefined && data[fileKey] !== undefined) {
+                let val = data[fileKey];
+                // Parse to correct type
+                if (it.t === 'toggleStr') {
+                    val = (val === 'true' || val === '1') ? 'true' : 'false';
+                } else if (it.t === 'toggle') {
+                    val = parseInt(val) ? 1 : 0;
+                } else {
+                    val = parseFloat(val);
+                    if (isNaN(val)) val = it.v;
+                }
+                _gfxValues[it.k] = val;
+                _gfxFileValues[it.k] = val;
+            }
+        }));
+
+        gfxSyncDOM();
+        gfxOnChange();
+    } catch(e) {}
+}
+
+function gfxSyncDOM() {
+    document.querySelectorAll('#gfxScroll [data-key]').forEach(el => {
+        const k = el.dataset.key;
+        const it = gfxFindItem(k);
+        if (!it) return;
+        const v = _gfxValues[it.k];
+        if (el.type === 'checkbox') {
+            el.checked = it.t === 'toggleStr' ? (String(v) === 'true') : !!v;
+            const lbl = el.parentElement?.querySelector('.gfx-toggle__label');
+            if (lbl) lbl.textContent = el.checked ? 'ON' : 'OFF';
+        } else if (el.type === 'range') {
+            el.value = v;
+            const valSpan = el.parentElement?.querySelector('.gfx-slider__val');
+            if (valSpan) valSpan.textContent = gfxFmt(v, it.step);
+        } else if (el.tagName === 'SELECT') {
+            el.value = v;
+        } else if (el.type === 'number') {
+            el.value = v;
+        }
+    });
+}
+
+function gfxFindItem(k) {
+    for (const cat of GFX_CATS)
+        for (const it of cat.items)
+            if (it.k === k) return it;
+    return null;
+}
 let _launcherUpdateVer = '';
 
 function checkLauncherUpdate(silent = true) {

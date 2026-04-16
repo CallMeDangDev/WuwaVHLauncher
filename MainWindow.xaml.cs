@@ -467,21 +467,23 @@ public partial class MainWindow : Window
     {
         try
         {
-            var exe = dx11 ? "Client-Win64-Shipping.exe" : "Wuthering Waves.exe";
-            var full = Path.Combine(gamePath, exe);
+            const string exeName = "Client-Win64-Shipping.exe";
+            var full = Path.Combine(gamePath, @"Client\Binaries\Win64", exeName);
             if (File.Exists(full))
             {
+                var args = dx11 ? "-SkipSplash -dx11" : "-SkipSplash -dx12";
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = full,
-                    WorkingDirectory = gamePath,
+                    Arguments = args,
+                    WorkingDirectory = Path.GetDirectoryName(full),
                     UseShellExecute = true
                 });
-                Dispatcher.Invoke(() => Application.Current.Shutdown());
+                Dispatcher.Invoke(() => WindowState = WindowState.Minimized);
             }
             else
             {
-                RunScript($"window.onInstallError({JsStr("Không tìm thấy file game: " + exe)})");
+                RunScript($"window.onInstallError({JsStr("Không tìm thấy file game: " + exeName)})");
             }
         }
         catch (Exception ex)
@@ -517,6 +519,30 @@ public partial class MainWindow : Window
                 var downloadUrl = $"https://github.com/CallMeDangDev/WuwaVHLauncher/releases/download/v{tag}/WuwaVHLauncher-v{tag}.zip";
                 RunScript($"window.onLauncherUpdateAvailable({JsStr('v' + tag)}, {JsStr(downloadUrl)})");
             }
+        }
+        catch { }
+    }
+
+    // ── VH release notes ─────────────────────────────────────────────
+
+    const string VHReleasesApiUrl = "https://api.github.com/repos/CallMeDangDev/WuwaVH/releases/latest";
+
+    internal async Task FetchVHReleaseNotes()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("WuwaVHLauncher/1.0");
+            var json = await http.GetStringAsync(VHReleasesApiUrl);
+            using var doc = JsonDocument.Parse(json);
+
+            var tag  = doc.RootElement.TryGetProperty("tag_name",     out var tp) ? tp.GetString() ?? "" : "";
+            var date = doc.RootElement.TryGetProperty("published_at", out var dp) ? dp.GetString() ?? "" : "";
+            var body = doc.RootElement.TryGetProperty("body",         out var bp) ? bp.GetString() ?? "" : "";
+            var name = doc.RootElement.TryGetProperty("name",         out var np) ? np.GetString() ?? "" : "";
+
+            while (!_pageReady) await Task.Delay(100);
+            RunScript($"window.onVHReleaseNotes({JsStr(tag)}, {JsStr(date)}, {JsStr(body)}, {JsStr(name)})");
         }
         catch { }
     }
@@ -864,6 +890,8 @@ public class LauncherBridge
 
     public void CheckLauncherUpdate() => Task.Run(() => _w.CheckLauncherVersion());
 
+    public void GetVHReleaseNotes() => Task.Run(() => _w.FetchVHReleaseNotes());
+
     public void PerformLauncherUpdate(string version, string zipUrl) =>
         Task.Run(() => _w.PerformLauncherUpdate(version, zipUrl));
 
@@ -1037,6 +1065,261 @@ public class LauncherBridge
                 _w.RunScript($"window.onFontRevertError({escaped})");
             }
         });
+
+    // ── High Performance Mode ─────────────────────────────────────────────────
+
+    static string GetPerfIniPath(string gamePath) =>
+        Path.Combine(gamePath, @"Client\Saved\Config\WindowsNoEditor\Engine.ini");
+
+    static string GetPerfIniBackupPath(string gamePath) =>
+        Path.Combine(gamePath, @"Client\Saved\Config\WindowsNoEditor\Engine.ini.backup");
+
+    static readonly Dictionary<string, string[]> _managedPerfKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["SystemSettings"] = new[]
+        {
+            "r.VRS.EnableMaterial", "r.VRS.EnableMesh",
+            "r.ParallelFrustumCull", "r.ParallelOcclusionCull",
+            "a.URO.ForceAnimRate", "r.Upscale.Quality",
+            "r.streaming.MeshMaxKeepMips", "r.streaming.TextureMaxKeepMips",
+            "foliage.DensityScaleLOD.DrawCallOptimize", "r.SceneColorFringeQuality",
+            "r.Shadow.MaxCSMResolution", "r.Shadow.MaxResolution", "r.Shadow.MinResolution",
+            "r.Shadow.PerObjectShadowMapResolution", "r.Shadow.PerObjectResolutionMax",
+            "r.Shadow.PerObjectResolutionMin", "r.Shadow.RadiusThreshold",
+            "r.Shadow.DistanceScale", "r.Shadow.ForbidHISMShadowStartIndex",
+            "r.SSR.MaxRoughness", "r.SSR.HalfResSceneColor",
+            "r.AmbientOcclusionMaxQuality",
+            "r.Kuro.KuroEnableFFTBloom", "r.Kuro.KuroEnableToonFFTBloom",
+            "r.DrawKuroPPLensflare", "r.EnableLensflareSceneSample", "r.kuro.kuroEnableScreenLeak",
+            "r.DepthOfFieldQuality",
+            "r.KuroMaterialQualityLevel", "r.MaterialQualityLevel", "r.DetailMode",
+            "r.Kuro.MaterialDesktopQualityShoulderRender",
+            "r.SSS.Scale", "r.SSS.Quality",
+            "r.ViewDistanceScale", "r.ScreenSizeCullRatioFactor", "r.StaticMeshLODDistanceScale",
+            "wp.Runtime.PlannedLoadingRangeScale", "wp.Runtime.SoraGridBlackListHeight",
+            "foliage.CullAll", "r.Kuro.Foliage.GrassCullDistanceMax", "r.Kuro.Foliage.Grass3_0CullDistanceMax",
+            "r.Kuro.InteractionEffect.EnableFoliageEffect", "r.Kuro.InteractionEffect.UseCppWaterEffect",
+            "r.EmitterSpawnRateScale", "fx.Niagara.QualityLevel", "r.ParticleLightQuality",
+            "r.KuroVolumeCloudEnable",
+            "r.KuroVolumetricLight.DownSampleFactor", "r.KuroVolumetricLight.ColorMaskDownSampleFactor",
+            "r.LightShaftDownSampleFactor", "r.SSFS",
+        },
+        ["/Script/Engine.RendererSettings"] = new[] { "r.RayTracing.LoadConfig" },
+    };
+
+    static string PatchIniContent(string content, Dictionary<string, List<(string key, string value)>> toSet)
+    {
+        var allManaged = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var arr in _managedPerfKeys.Values)
+            foreach (var k in arr) allManaged.Add(k);
+
+        var raw = content.Replace("\r\n", "\n").Replace("\r", "\n").TrimEnd('\n');
+        var lines = raw.Length > 0 ? raw.Split('\n').ToList() : new List<string>();
+
+        var sectionOf = new string?[lines.Count];
+        string? cur = null;
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var t = lines[i].Trim();
+            if (t.StartsWith('[') && t.EndsWith(']') && t.Length > 2)
+                cur = t.Substring(1, t.Length - 2);
+            sectionOf[i] = cur;
+        }
+
+        var result = new List<(string text, string? sec)>();
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var t = lines[i].Trim();
+            var eq = t.IndexOf('=');
+            if (eq > 0 && allManaged.Contains(t.Substring(0, eq).Trim())) continue;
+            result.Add((lines[i], sectionOf[i]));
+        }
+
+        foreach (var (sectionName, kvList) in toSet)
+        {
+            if (kvList.Count == 0) continue;
+
+            int secIdx = -1;
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (result[i].text.Trim() == $"[{sectionName}]") { secIdx = i; break; }
+            }
+
+            if (secIdx < 0)
+            {
+                if (result.Count > 0 && result[result.Count - 1].text.Trim() != "")
+                    result.Add(("", null));
+                result.Add(($"[{sectionName}]", sectionName));
+                foreach (var (k, v) in kvList)
+                    result.Add(($"{k}={v}", sectionName));
+            }
+            else
+            {
+                int end = secIdx + 1;
+                while (end < result.Count)
+                {
+                    var t = result[end].text.Trim();
+                    if (t.StartsWith('[') && t.EndsWith(']') && t.Length > 2) break;
+                    end++;
+                }
+                int insert = end;
+                while (insert > secIdx + 1 && result[insert - 1].text.Trim() == "") insert--;
+
+                for (int j = kvList.Count - 1; j >= 0; j--)
+                    result.Insert(insert, ($"{kvList[j].key}={kvList[j].value}", sectionName));
+            }
+        }
+
+        return string.Join("\n", result.ConvertAll(x => x.text)) + "\n";
+    }
+
+    public string ApplyPerformanceConfig(string gamePath, string settingsJson)
+    {
+        try
+        {
+            var iniPath    = GetPerfIniPath(gamePath);
+            var backupPath = GetPerfIniBackupPath(gamePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(iniPath)!);
+
+            if (!File.Exists(backupPath) && File.Exists(iniPath))
+                File.Copy(iniPath, backupPath, overwrite: false);
+
+            var originalContent = File.Exists(backupPath)
+                ? File.ReadAllText(backupPath, System.Text.Encoding.UTF8)
+                : "";
+
+            using var doc = JsonDocument.Parse(settingsJson);
+            var r = doc.RootElement;
+            bool Get(string key) => r.TryGetProperty(key, out var v) && v.GetBoolean();
+
+            var ss = new List<(string key, string value)>
+            {
+                ("r.VRS.EnableMaterial", "false"),
+                ("r.VRS.EnableMesh", "false"),
+                ("r.ParallelFrustumCull", "1"),
+                ("r.ParallelOcclusionCull", "1"),
+                ("a.URO.ForceAnimRate", "1"),
+                ("r.Upscale.Quality", "3"),
+                ("r.streaming.MeshMaxKeepMips", "15"),
+                ("r.streaming.TextureMaxKeepMips", "15"),
+                ("foliage.DensityScaleLOD.DrawCallOptimize", "1"),
+                ("r.SceneColorFringeQuality", "0"),
+            };
+
+            if (Get("shadows"))
+            {
+                ss.Add(("r.Shadow.MaxCSMResolution", "256"));
+                ss.Add(("r.Shadow.MaxResolution", "256"));
+                ss.Add(("r.Shadow.MinResolution", "256"));
+                ss.Add(("r.Shadow.PerObjectShadowMapResolution", "256"));
+                ss.Add(("r.Shadow.PerObjectResolutionMax", "256"));
+                ss.Add(("r.Shadow.PerObjectResolutionMin", "256"));
+                ss.Add(("r.Shadow.RadiusThreshold", "0.06"));
+                ss.Add(("r.Shadow.DistanceScale", "0.5"));
+                ss.Add(("r.Shadow.ForbidHISMShadowStartIndex", "0"));
+            }
+            if (Get("ssr"))
+            {
+                ss.Add(("r.SSR.MaxRoughness", "0.1"));
+                ss.Add(("r.SSR.HalfResSceneColor", "1"));
+            }
+            if (Get("ao"))   ss.Add(("r.AmbientOcclusionMaxQuality", "0"));
+            if (Get("bloom"))
+            {
+                ss.Add(("r.Kuro.KuroEnableFFTBloom", "0"));
+                ss.Add(("r.Kuro.KuroEnableToonFFTBloom", "0"));
+            }
+            if (Get("lensFlare"))
+            {
+                ss.Add(("r.DrawKuroPPLensflare", "0"));
+                ss.Add(("r.EnableLensflareSceneSample", "0"));
+                ss.Add(("r.kuro.kuroEnableScreenLeak", "0"));
+            }
+            if (Get("dof"))  ss.Add(("r.DepthOfFieldQuality", "0"));
+            if (Get("materials"))
+            {
+                ss.Add(("r.KuroMaterialQualityLevel", "2"));
+                ss.Add(("r.MaterialQualityLevel", "2"));
+                ss.Add(("r.DetailMode", "0"));
+                ss.Add(("r.Kuro.MaterialDesktopQualityShoulderRender", "0"));
+            }
+            if (Get("sss"))
+            {
+                ss.Add(("r.SSS.Scale", "0"));
+                ss.Add(("r.SSS.Quality","0"));
+            }
+            if (Get("viewDist"))
+            {
+                ss.Add(("r.ViewDistanceScale", "0.8"));
+                ss.Add(("r.ScreenSizeCullRatioFactor", "10"));
+                ss.Add(("r.StaticMeshLODDistanceScale", "0.7"));
+                ss.Add(("wp.Runtime.PlannedLoadingRangeScale", "0.4"));
+                ss.Add(("wp.Runtime.SoraGridBlackListHeight", "5000"));
+            }
+            if (Get("foliage"))
+            {
+                ss.Add(("foliage.CullAll", "1"));
+                ss.Add(("r.Kuro.Foliage.GrassCullDistanceMax", "2000"));
+                ss.Add(("r.Kuro.Foliage.Grass3_0CullDistanceMax", "2000"));
+            }
+            if (Get("foliageInteract"))
+            {
+                ss.Add(("r.Kuro.InteractionEffect.EnableFoliageEffect", "0"));
+                ss.Add(("r.Kuro.InteractionEffect.UseCppWaterEffect", "0"));
+            }
+            if (Get("particles"))
+            {
+                ss.Add(("r.EmitterSpawnRateScale", "0.125"));
+                ss.Add(("fx.Niagara.QualityLevel", "0"));
+                ss.Add(("r.ParticleLightQuality", "0"));
+            }
+            if (Get("clouds")) ss.Add(("r.KuroVolumeCloudEnable", "0"));
+            if (Get("volumetric"))
+            {
+                ss.Add(("r.KuroVolumetricLight.DownSampleFactor", "4"));
+                ss.Add(("r.KuroVolumetricLight.ColorMaskDownSampleFactor", "4"));
+                ss.Add(("r.LightShaftDownSampleFactor", "2"));
+                ss.Add(("r.SSFS", "0"));
+            }
+
+            var toSet = new Dictionary<string, List<(string key, string value)>>
+            {
+                ["SystemSettings"] = ss,
+                ["/Script/Engine.RendererSettings"] = new List<(string, string)>
+                {
+                    ("r.RayTracing.LoadConfig", "0"),
+                },
+            };
+
+            File.WriteAllText(iniPath, PatchIniContent(originalContent, toSet), System.Text.Encoding.UTF8);
+            return "ok";
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return "Không có quyền ghi file. Vui lòng chạy Launcher với quyền Admin.";
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    public string ClearPerformanceConfig(string gamePath)
+    {
+        try
+        {
+            var iniPath    = GetPerfIniPath(gamePath);
+            var backupPath = GetPerfIniBackupPath(gamePath);
+            if (!File.Exists(backupPath)) return "no_backup";
+            File.Copy(backupPath, iniPath, overwrite: true);
+            File.Delete(backupPath);
+            return "ok";
+        }
+        catch (Exception ex) { return ex.Message; }
+    }
+
+    public bool GetPerformanceConfigActive(string gamePath) =>
+        File.Exists(GetPerfIniBackupPath(gamePath));
 }
 
 
