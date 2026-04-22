@@ -1,75 +1,87 @@
-﻿/* =============================================
-   START BUTTON — Dark Gold Theme
-   ============================================= */
+﻿
 .start-btn {
     position: relative;
     width: 100%; height: 54px;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
 
-    background: rgba(201, 168, 76, 0.12);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.20) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.25) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #f97da2 0%, #ec5580 35%, #e04872 60%, #d84070 100%);
 
-    border: 1px solid rgba(201, 168, 76, 0.70);
-    border-top-color: rgba(248, 220, 110, 0.95);
-    border-radius: var(--radius-sm);
+    border: 3px solid #b03058;
+    border-radius: 6px;
+
+    outline: 4px solid;
+    outline-color: #edd5a5;
+    outline-offset: 0px;
 
     box-shadow:
-        0 0 24px rgba(201, 168, 76, 0.30),
-        0 6px 28px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(248, 220, 110, 0.45),
-        inset 0 -1px 0 rgba(201, 168, 76, 0.12);
+        0 8px 0 -2px #50dcd0,
+        0 10px 20px rgba(0, 0, 0, 0.30),
+        0 4px 10px rgba(0, 0, 0, 0.18),
+        inset 0 2px 0 rgba(255, 210, 225, 0.50),
+        inset 0 -4px 6px rgba(140, 30, 60, 0.25);
 
     overflow: hidden;
+    cursor: var(--cursor-select);
     transition: background var(--dur), border-color var(--dur),
                 box-shadow var(--dur), transform var(--dur);
 }
 
 .start-btn:hover {
-    background: rgba(201, 168, 76, 0.22);
-    border-color: rgba(248, 220, 110, 0.95);
-    border-top-color: rgba(255, 235, 130, 1.00);
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.25) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.30) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #ff8fb0 0%, #f06090 35%, #e8527e 60%, #e04878 100%);
+    outline-color: #f5e0b5;
     box-shadow:
-        0 0 36px rgba(201, 168, 76, 0.50),
-        0 8px 36px rgba(0, 0, 0, 0.45),
-        inset 0 1px 0 rgba(255, 235, 130, 0.60),
-        inset 0 -1px 0 rgba(201, 168, 76, 0.16);
-    transform: translateY(-2px);
+        0 8px 0 -2px #60e8de,
+        0 12px 24px rgba(0, 0, 0, 0.35),
+        0 5px 12px rgba(0, 0, 0, 0.20),
+        inset 0 2px 0 rgba(255, 220, 235, 0.60),
+        inset 0 -4px 6px rgba(140, 30, 60, 0.20);
+    transform: translateY(-1px);
 }
 .start-btn:active {
-    transform: translateY(0);
-    background: rgba(201, 168, 76, 0.08);
+    transform: translateY(1px);
+    box-shadow:
+        0 4px 0 -2px #50dcd0,
+        0 6px 12px rgba(0, 0, 0, 0.25),
+        inset 0 2px 4px rgba(100, 20, 40, 0.30);
 }
 
-/* Top gold sheen */
 .start-btn::before {
     content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 55%;
+    position: absolute; top: 0; left: 0; right: 0; height: 48%;
     background: linear-gradient(
         180deg,
-        rgba(248, 220, 110, 0.20) 0%,
-        rgba(201, 168, 76, 0.04) 100%
+        rgba(255, 215, 230, 0.45) 0%,
+        rgba(255, 190, 210, 0.12) 60%,
+        transparent 100%
     );
+    border-radius: 3px 3px 50% 50%;
     pointer-events: none;
-    z-index: 0;
+    z-index: 1;
 }
 
-/* Gold shimmer sweep */
+.start-btn::after { display: none; }
+
 .start-btn__shine {
     position: absolute; top: -15%; left: -130%;
     width: 55%; height: 130%;
     background: linear-gradient(
         108deg,
         transparent           10%,
-        rgba(201,168,76,0.10) 30%,
-        rgba(248,220,110,0.50) 50%,
-        rgba(201,168,76,0.10) 70%,
+        rgba(255,230,240,0.06) 30%,
+        rgba(255,255,255,0.30) 50%,
+        rgba(255,230,240,0.06) 70%,
         transparent           90%
     );
     transform: skewX(-14deg);
-    animation: liquidSweep 6s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+    animation: liquidSweep 5s cubic-bezier(0.45, 0, 0.35, 1) infinite;
     pointer-events: none;
-    z-index: 1;
+    z-index: 2;
 }
 
 @keyframes liquidSweep {
@@ -80,49 +92,110 @@
     100% { left: 148%; opacity: 0; }
 }
 
-/* Content above pseudo layers */
-.start-btn__label { position: relative; z-index: 2; }
+.start-btn__star {
+    position: absolute;
+    left: -6px; top: 50%;
+    transform: translateY(-50%);
+    width: 42px; height: 42px;
+    z-index: 5;
+    filter: drop-shadow(0 2px 4px rgba(180, 40, 40, 0.45));
+    pointer-events: none;
+}
+
+.start-btn__deco {
+    position: absolute;
+    width: 10px; height: 10px;
+    z-index: 5;
+    filter: drop-shadow(0 1px 2px rgba(200, 150, 0, 0.50));
+    pointer-events: none;
+}
+.start-btn__deco--tl { top: -12px; left: 22px; transform: rotate(15deg); }
+.start-btn__deco--tr { top: -10px; right: -6px; width: 8px; height: 8px; transform: rotate(-20deg); }
+.start-btn__deco--bl { bottom: -10px; right: 30px; width: 7px; height: 7px; transform: rotate(30deg); }
+.start-btn__deco--br { bottom: -8px; right: -8px; width: 9px; height: 9px; transform: rotate(-10deg); }
+
+.start-btn__label { position: relative; z-index: 3; }
 .start-btn__label {
-    font-size: 14px; font-weight: 700;
-    color: var(--accent-warm);
-    text-shadow: 0 0 20px rgba(201,168,76,0.90), 0 0 6px rgba(201,168,76,0.60), 0 1px 4px rgba(0,0,0,0.5);
-    letter-spacing: 3px;
+    font-size: 16px; font-weight: 900;
+    color: #fff;
+    text-shadow:
+        
+        -1px -1px 0 #a02050,
+         1px -1px 0 #a02050,
+        -1px  1px 0 #a02050,
+         1px  1px 0 #a02050,
+        
+        0 3px 0 #8a1840,
+        
+        0 0 12px rgba(255,150,180,0.30);
+    letter-spacing: 2px;
     text-transform: uppercase;
 }
-/* Installing state — gold-green */
+
 .start-btn.installing {
-    background: rgba(8, 22, 14, 0.75);
-    border-color: rgba(74, 222, 128, 0.55);
-    border-top-color: rgba(100, 240, 150, 0.75);
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.18) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.22) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #6ee09a 0%, #42c470 35%, #36b060 60%, #2da555 100%);
+    border-color: #1e8a42;
+    outline-color: #c8e8b0;
     box-shadow:
-        0 0 22px rgba(74, 222, 128, 0.22),
-        0 6px 28px rgba(0, 0, 0, 0.50),
-        inset 0 1px 0 rgba(74, 222, 128, 0.25);
+        0 8px 0 -2px #50dcd0,
+        0 10px 20px rgba(0, 0, 0, 0.25),
+        inset 0 2px 0 rgba(180, 255, 210, 0.40),
+        inset 0 -4px 6px rgba(20, 80, 40, 0.20);
 }
-.start-btn.installing:hover { background: rgba(10, 26, 16, 0.85); }
+.start-btn.installing:hover {
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.22) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.28) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #7eeaa8 0%, #50d07e 35%, #40bc6a 60%, #35b060 100%);
+    outline-color: #d5f0c0;
+}
 .start-btn.installing .start-btn__label {
-    color: var(--green);
-    text-shadow: 0 0 14px rgba(74,222,128,0.55);
+    text-shadow:
+        -1px -1px 0 #186838,
+         1px -1px 0 #186838,
+        -1px  1px 0 #186838,
+         1px  1px 0 #186838,
+         0 3px 0 #125530,
+         0 0 12px rgba(100,230,150,0.30);
     letter-spacing: 0.5px;
 }
-/* Installed / Play state — gold-blue */
+.start-btn.installing .start-btn__star path { fill: url(#starGrad); }
+
 .start-btn.installed {
-    background: rgba(8, 14, 26, 0.75);
-    border-color: rgba(96, 165, 250, 0.55);
-    border-top-color: rgba(120, 190, 255, 0.75);
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.18) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.22) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #7eb8ff 0%, #5598e8 35%, #4588dc 60%, #3a7dd0 100%);
+    border-color: #2a6aba;
+    outline-color: #b8d0f0;
     box-shadow:
-        0 0 22px rgba(96, 165, 250, 0.20),
-        0 6px 28px rgba(0, 0, 0, 0.50),
-        inset 0 1px 0 rgba(96, 165, 250, 0.22);
+        0 8px 0 -2px #50dcd0,
+        0 10px 20px rgba(0, 0, 0, 0.25),
+        inset 0 2px 0 rgba(180, 215, 255, 0.40),
+        inset 0 -4px 6px rgba(20, 50, 100, 0.20);
 }
-.start-btn.installed:hover { background: rgba(10, 16, 30, 0.85); }
+.start-btn.installed:hover {
+    background:
+        radial-gradient(circle at 85% 75%, rgba(255,255,255,0.22) 0%, transparent 50%) no-repeat,
+        radial-gradient(circle 1px, rgba(255,255,255,0.28) 0%, transparent 80%) 0 0 / 5px 5px,
+        linear-gradient(180deg, #90c5ff 0%, #60a2f0 35%, #5092e0 60%, #4088d8 100%);
+    outline-color: #c8ddf8;
+}
 .start-btn.installed .start-btn__label {
-    color: var(--blue);
-    text-shadow: 0 0 14px rgba(96,165,250,0.55);
+    text-shadow:
+        -1px -1px 0 #1a4080,
+         1px -1px 0 #1a4080,
+        -1px  1px 0 #1a4080,
+         1px  1px 0 #1a4080,
+         0 3px 0 #153568,
+         0 0 12px rgba(100,170,255,0.30);
 }
+
 .start-btn.disabled { pointer-events: none; opacity: 0.45; }
 
-/* DX11 toggle row — sits flush under the start button, full-width pill */
 .dx11-row {
     display: flex;
     padding: 0 0 5px;
@@ -153,7 +226,7 @@
     width: 0; height: 0;
     pointer-events: none;
 }
-/* Custom toggle switch */
+
 .dx11-checkmark {
     flex-shrink: 0;
     width: 34px; height: 18px;
@@ -200,9 +273,6 @@
     color: rgba(180, 220, 255, 1);
 }
 
-/* =============================================
-   WATER RIPPLE CLICK EFFECT
-   ============================================= */
 .ripple-origin {
     position: fixed;
     pointer-events: none;
@@ -215,8 +285,8 @@
     left: -5px; top: -5px;
     border-radius: 50%;
     background: radial-gradient(circle,
-        rgba(248, 220, 110, 0.95) 0%,
-        rgba(201, 168, 76, 0.55) 45%,
+        rgba(255, 130, 170, 0.95) 0%,
+        rgba(232, 85, 126, 0.55) 45%,
         transparent 100%);
     transform: scale(0);
     animation: rippleSplash 350ms ease-out forwards;
@@ -226,11 +296,11 @@
     width: 140px; height: 140px;
     left: -70px; top: -70px;
     border-radius: 50%;
-    border: 1.5px solid rgba(201, 168, 76, 0.82);
+    border: 1.5px solid rgba(232, 85, 126, 0.82);
     box-shadow:
-        0 0 8px rgba(201, 168, 76, 0.45),
-        inset 0 0 4px rgba(248, 220, 110, 0.15);
-    /* scaleY simulates perspective — ripple on a tilted water surface */
+        0 0 8px rgba(232, 85, 126, 0.45),
+        inset 0 0 4px rgba(255, 130, 170, 0.15);
+    
     transform: scaleY(0.42) scale(0);
     opacity: 0;
     animation: rippleRing var(--dur, 1s) cubic-bezier(0.08, 0.65, 0.25, 1) var(--delay, 0ms) forwards;
@@ -246,9 +316,6 @@
     100% { transform: scaleY(0.42) scale(1);    opacity: 0;   }
 }
 
-/* =============================================
-   TOAST
-   ============================================= */
 #toasts {
     position: fixed; top: 56px; right: 16px; z-index: 600;
     display: flex; flex-direction: column; gap: 8px;
@@ -271,9 +338,6 @@
 .toast--err { border-left: 3px solid var(--red); }
 .toast--info { border-left: 3px solid var(--blue); }
 
-/* =============================================
-   CONFIRM MODAL
-   ============================================= */
 .modal-backdrop {
     position: fixed; inset: 0; z-index: 900;
     background: rgba(0,0,0,0.55);
@@ -287,14 +351,14 @@
 }
 .modal-box {
     width: 380px;
-    background: #0f1320;
-    border: 1px solid rgba(201,168,76,0.55);
-    border-top-color: rgba(248,220,110,0.85);
+    background: #200e18;
+    border: 1px solid rgba(232,85,126,0.55);
+    border-top-color: rgba(255,130,170,0.85);
     border-radius: 10px;
     padding: 26px 28px 22px;
     box-shadow:
         0 0 40px rgba(0,0,0,0.7),
-        0 0 18px rgba(201,168,76,0.15);
+        0 0 18px rgba(232,85,126,0.15);
     animation: modalSlideIn 220ms cubic-bezier(0.34,1.45,0.64,1) both;
 }
 @keyframes modalSlideIn {
@@ -310,7 +374,7 @@
     height: 1px; background: rgba(255,255,255,0.07); margin-bottom: 16px;
 }
 .modal-msg {
-    font-size: 13px; color: #b0c0d8;
+    font-size: 13px; color: #d8b0c0;
     line-height: 1.6; margin-bottom: 24px;
 }
 .modal-actions {
@@ -324,15 +388,14 @@
     transition: background var(--dur), color var(--dur);
 }
 .modal-btn--cancel {
-    background: #141b2d; border: 1px solid #2a3550; color: #8090a8;
+    background: #2a1020; border: 1px solid #4a2535; color: #b08898;
 }
-.modal-btn--cancel:hover { background: #1e2a40; border-color: #3a4f70; color: #a0b0c8; }
+.modal-btn--cancel:hover { background: #3a1830; border-color: #6a3550; color: #d0a8b8; }
 .modal-btn--ok {
-    background: #c9a84c; color: #0f1320; font-weight: 600;
+    background: #e8557e; color: #1a0a12; font-weight: 600;
 }
-.modal-btn--ok:hover { background: #e8c45a; }
+.modal-btn--ok:hover { background: #ff6b9d; }
 
-/* ===== Admin Permission Modal ===== */
 .admin-modal { width: 420px; padding: 24px 26px 22px; }
 .admin-modal__header {
     display: flex; align-items: center; gap: 16px;
@@ -340,18 +403,18 @@
 }
 .admin-modal__shield {
     width: 52px; height: 52px; border-radius: 14px; flex-shrink: 0;
-    background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.06));
-    border: 1px solid rgba(201,168,76,0.35);
+    background: linear-gradient(135deg, rgba(232,85,126,0.18), rgba(232,85,126,0.06));
+    border: 1px solid rgba(232,85,126,0.35);
     display: flex; align-items: center; justify-content: center;
-    color: #c9a84c;
-    box-shadow: 0 0 18px rgba(201,168,76,0.15);
+    color: #e8557e;
+    box-shadow: 0 0 18px rgba(232,85,126,0.15);
 }
 .admin-modal__titles { display: flex; flex-direction: column; gap: 2px; }
-.admin-modal__label { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; color: rgba(201,168,76,0.7); text-transform: uppercase; }
+.admin-modal__label { font-size: 10px; font-weight: 700; letter-spacing: 1.4px; color: rgba(232,85,126,0.7); text-transform: uppercase; }
 .admin-modal__title { font-size: 18px; font-weight: 700; color: #fff; }
 .admin-modal__sep { height: 1px; background: rgba(255,255,255,0.07); margin-bottom: 16px; }
 .admin-modal__reason {
-    font-size: 13px; color: #8fa0ba; line-height: 1.65;
+    font-size: 13px; color: #ba8fa0; line-height: 1.65;
     margin-bottom: 14px;
 }
 .admin-modal__path {

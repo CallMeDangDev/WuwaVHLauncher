@@ -1,6 +1,4 @@
-﻿/* ===========================================
-   PARTICLES
-   =========================================== */
+﻿
 function initParticles() {
     const c = document.getElementById('particleCanvas');
     if (!c) return;
@@ -56,30 +54,13 @@ function initParticles() {
     })();
 }
 
-/* ===========================================
-   NAV WAVE — Oscillation / Sound-Wave Indicator
-   =========================================== */
 let navWaveT = 0;      // global time tick
-
-// Indicator lerp state
 let _indCurL = 0, _indCurW = 0;   // currently rendered bounds (px from nav left)
 let _indTgtL = 0, _indTgtW = 0;   // target bounds
 let _indReady = false;
 
 function initNavWave() {
-    const canvas = document.getElementById('navWaveCanvas');
-    if (!canvas) return;
-    (function loop() {
-        if (_indReady) {
-            // Exponential lerp — ~0.10 per frame at 60 fps ≈ smooth 350 ms settle
-            const k = 0.10;
-            _indCurL += (_indTgtL - _indCurL) * k;
-            _indCurW += (_indTgtW - _indCurW) * k;
-        }
-        drawNavWave(canvas);
-        navWaveT++;
-        requestAnimationFrame(loop);
-    })();
+    return;
 }
 
 function drawNavWave(canvas) {
@@ -95,17 +76,11 @@ function drawNavWave(canvas) {
     if (cW <= 1) return;
 
     const t = navWaveT;
-
-    // Arch envelope relative to indicator region: 0 at edges, 1 at centre
     const arch = x => Math.sin(Math.PI * (x - cL) / cW);
-
-    // Slow breathe
     const breathe = 0.88 + 0.12 * Math.sin(t * 0.010);
+    const MAIN_AMP = H * 0.12;
 
-    // Tall parabolic arch
-    const MAIN_AMP = H * 0.44;
-
-    const N = 6;
+    const N = 4;
 
     const drawArc = (side) => {
         for (let i = 0; i < N; i++) {
@@ -114,26 +89,26 @@ function drawNavWave(canvas) {
             const freq   = 0.044 + i * 0.007;
             const speed  = 0.030 + i * 0.004;
             const phase  = i * 0.85 + (side > 0 ? Math.PI : 0);
-            const oscAmp = H * 0.040 * scale;
+            const oscAmp = H * 0.015 * scale;
 
             const yLine  = x =>
-                H * 0.50
+                H * 0.72
                 + side * amp * arch(x)
                 + oscAmp * arch(x) * Math.sin((x - cL) * freq + t * speed + phase);
 
             const outerRatio = scale;
-            const op   = 0.15 + outerRatio * 0.82;
-            const lw   = 0.5  + outerRatio * 1.8;
-            const blur = 2    + outerRatio * 14;
+            const op   = 0.10 + outerRatio * 0.45;
+            const lw   = 0.4  + outerRatio * 1.2;
+            const blur = 2    + outerRatio * 8;
 
             ctx.save();
-            ctx.shadowColor = `rgba(242,210,100,${op * 0.75})`;
+            ctx.shadowColor = `rgba(232,85,126,${op * 0.55})`;
             ctx.shadowBlur  = blur;
             ctx.beginPath();
             for (let x = cL; x <= cL + cW; x++) {
                 x === cL ? ctx.moveTo(x, yLine(x)) : ctx.lineTo(x, yLine(x));
             }
-            ctx.strokeStyle = `rgba(242,212,100,${op})`;
+            ctx.strokeStyle = `rgba(255,107,157,${op})`;
             ctx.lineWidth   = lw;
             ctx.stroke();
             ctx.restore();
@@ -144,6 +119,3 @@ function drawNavWave(canvas) {
     drawArc(+1); // bottom arcs
 }
 
-/* ===========================================
-   TOP NAV
-   =========================================== */

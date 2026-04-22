@@ -2,7 +2,7 @@
     document.querySelectorAll('.top-nav__item').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
-    // Position indicator then start oscillation
+    
     requestAnimationFrame(() => {
         updateNavIndicator();
         initNavWave();
@@ -18,7 +18,6 @@ async function checkAdminIfNeeded() {
         const result = await bridge().CheckGameFolderWriteAccess(S.gamePath);
         if (result !== 'admin_required') return;
 
-        // Show the dedicated admin modal
         const pathEl = document.getElementById('adminModalPath');
         if (pathEl) pathEl.textContent = S.gamePath;
 
@@ -56,7 +55,7 @@ function switchPage(page) {
     document.getElementById('rightPanel').style.display        = isHome                  ? '' : 'none';
     document.getElementById('pagePerformance').style.display   = page === 'performance'  ? '' : 'none';
     document.getElementById('pageFontCreator').style.display   = page === 'font-creator' ? '' : 'none';
-    // Hide bottom-left widgets when not on home to avoid overlap
+    
     const ap = document.getElementById('audioPlayer');
     const sp = document.getElementById('sidePanel');
     if (ap) ap.style.display = isHome ? '' : 'none';
@@ -78,13 +77,12 @@ function updateNavIndicator() {
     _indTgtW = actRect.width;
 
     if (!_indReady) {
-        // First call: snap immediately, no animation
+        
         _indCurL = _indTgtL;
         _indCurW = _indTgtW;
         _indReady = true;
     }
 
-    // Resize canvas to cover the full nav bar (only once / on layout change)
     const canvas = document.getElementById('navWaveCanvas');
     if (canvas) {
         const fw = Math.round(navRect.width);
@@ -96,13 +94,10 @@ function updateNavIndicator() {
     }
 }
 
-/* ===========================================
-   TOP BAR
-   =========================================== */
 function initTopBar() {
     document.getElementById('btnMinimize')?.addEventListener('click', () => bridge()?.MinimizeWindow());
     document.getElementById('btnClose')?.addEventListener('click', () => bridge()?.CloseWindow());
-    // Drag whole window â€” exclude interactive elements
+    
     document.addEventListener('mousedown', e => {
         if (e.button !== 0) return;
         if (e.target.closest('button, a, input, select, label, .sidebar__inner, .right-panel')) return;
@@ -110,6 +105,3 @@ function initTopBar() {
     });
 }
 
-/* ===========================================
-   BOTTOM BAR
-   =========================================== */

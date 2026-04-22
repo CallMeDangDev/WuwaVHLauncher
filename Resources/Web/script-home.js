@@ -1,7 +1,6 @@
 ﻿function initBottomBar() {
     document.getElementById('btnStart')?.addEventListener('click', handleStart);
 
-    // Hamburger menu
     const menuBtn  = document.getElementById('btnMenu');
     const dropdown = document.getElementById('rpDropdown');
     menuBtn?.addEventListener('click', e => {
@@ -14,7 +13,6 @@
         document.getElementById('btnMenu')?.classList.remove('active');
     });
 
-    // Dropdown items
     document.getElementById('menuGameDir')?.addEventListener('click', async () => {
         dropdown?.classList.remove('open');
         document.getElementById('btnMenu')?.classList.remove('active');
@@ -165,7 +163,6 @@ function launchGame() {
     }
 }
 
-/* C# callbacks */
 window.onProgressUpdate  = (p,t,sp,sz) => setProgress(p,t,sp,sz);
 window.onInstallComplete = () => installDone();
 window.onInstallError = msg => {
@@ -190,8 +187,7 @@ window.onAdminRequired = () => {
     prog.style.display = 'none';
     const dx11Row = document.getElementById('dx11Row');
     if (dx11Row) dx11Row.style.display = 'none';
-    
-    // Change button behavior temporarily for restart
+
     const oldHandler = handleStart;
     btn.removeEventListener('click', oldHandler);
     
@@ -205,17 +201,14 @@ window.onAdminRequired = () => {
 window.onGamePathDetected = path => {
     S.gamePath = path;
     S.cfg.gamePath = path;
-    // Auto check for update on startup once path is known
+    
     if (!S.autoCheckDone && !S.installing) {
         S.autoCheckDone = true;
         setTimeout(() => { if (!S.installing) startInstall(); }, 800);
     }
 };
 
-/* Media streaming callbacks (called by C# background download) */
-/* ===========================================
-   UPDATE COUNTDOWN
-   =========================================== */
+
 (function() {
     let _targetDate = null;
     let _totalMs = 0;
@@ -231,7 +224,7 @@ window.onGamePathDetected = path => {
         const diff = _targetDate - now;
 
         if (diff <= 0) {
-            // Countdown finished — show all zeros, mark done
+            
             ['ucDays','ucHours','ucMins','ucSecs'].forEach(id => {
                 const e = document.getElementById(id);
                 if (e) e.textContent = '00';
@@ -275,7 +268,7 @@ window.onGamePathDetected = path => {
         if (isNaN(target.getTime())) return;
 
         _targetDate = target.getTime();
-        // Use 6-week cycle as total span for the progress bar
+        
         _totalMs = 6 * 7 * 24 * 3600 * 1000;
 
         el.style.display = '';
@@ -323,7 +316,7 @@ window.onMediaProgress = (pct, text, speed, size) => {
 };
 
 window.onMediaReady = (bgmUrl, videoUrl) => {
-    // Load video â€” keep hidden until first frame is decoded to avoid flash
+    
     if (videoUrl) {
         const vid = document.getElementById('bgVideo');
         if (vid) {
@@ -337,16 +330,13 @@ window.onMediaReady = (bgmUrl, videoUrl) => {
             vid.addEventListener('canplay', onReady);
         }
     }
-    // Load audio via exposed setter (from initAudioPlayer)
+    
     if (bgmUrl && window.apSetAudioSource) window.apSetAudioSource(bgmUrl);
     window.onMediaStatus('ready');
 };
 
-/* ===========================================
-   FOLDER POPUP
-   =========================================== */
 function initModal() {
-    // Legacy name kept for loadSettings compatibility
+    
 }
 
 function openModal() {}
@@ -372,6 +362,3 @@ async function loadVersions() {
 
 let _launcherUpdateUrl = '';
 
-/* ===========================================
-   ĐỒ HOẠ PAGE — Data-driven settings UI
-   =========================================== */

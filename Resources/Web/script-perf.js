@@ -1,6 +1,4 @@
-/* =============================================
-   HIGH PERFORMANCE MODE — script-perf.js
-   ============================================= */
+
 
 const PM_TOGGLES = [
     { id: 'pmShadows',         key: 'shadows'         },

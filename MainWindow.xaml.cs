@@ -32,14 +32,14 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closing += (_, _) =>
         {
-            // Clear WebView2 cache to prevent source extraction from disk cache
+            
             try
             {
                 webView.CoreWebView2?.Profile.ClearBrowsingDataAsync();
                 webView.Dispose();
             }
             catch { }
-            // Delete WebView2 cache folder
+            
             try
             {
                 var wv2Dir = Path.Combine(AppDataFolder, "WebView2");
@@ -58,7 +58,7 @@ public partial class MainWindow : Window
 
         try
         {
-            // Block remote debugging — ignore any user-set env var
+            
             Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
                 "--remote-debugging-port=0");
 
@@ -80,7 +80,6 @@ public partial class MainWindow : Window
             webView.CoreWebView2.AddHostObjectToScript("launcher", new LauncherBridge(this));
             webView.CoreWebView2.WebMessageReceived += OnWebMessage;
 
-            // Serve web resources from embedded assembly — never written to disk
             webView.CoreWebView2.AddWebResourceRequestedFilter("https://app.local/*", CoreWebView2WebResourceContext.All);
             webView.CoreWebView2.WebResourceRequested += OnWebResourceRequested;
 
@@ -119,20 +118,15 @@ public partial class MainWindow : Window
             _splash = null;
         });
 
-        // Inject anti-inspection script
         RunScript(@"
             (function(){
-                // Disable text selection
                 document.addEventListener('selectstart', e => e.preventDefault());
-                // Disable drag
                 document.addEventListener('dragstart', e => e.preventDefault());
-                // Block inspection shortcuts: F12, Ctrl+Shift+I/J/C, Ctrl+U, Ctrl+S
                 document.addEventListener('keydown', function(e){
                     if(e.key==='F12') { e.preventDefault(); return; }
                     if(e.ctrlKey && e.shiftKey && 'IJC'.includes(e.key.toUpperCase())) { e.preventDefault(); return; }
                     if(e.ctrlKey && 'USus'.includes(e.key)) { e.preventDefault(); return; }
                 });
-                // Neuter console methods to prevent logging inspection
                 ['log','warn','error','info','debug','table','dir','trace'].forEach(function(m){
                     console[m] = function(){};
                 });
@@ -146,7 +140,7 @@ public partial class MainWindow : Window
     void OnNavigationStarting(object? sender, CoreWebView2NavigationStartingEventArgs e)
     {
         var uri = new Uri(e.Uri);
-        // Only allow our virtual hosts
+        
         if (uri.Host != "app.local" && uri.Host != "cache.local")
             e.Cancel = true;
     }
@@ -175,7 +169,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Serve embedded web resources (XOR-encrypted) from memory ──────
 
     static readonly Assembly Asm = Assembly.GetExecutingAssembly();
     const string ResPrefix = "WuwaVHLauncher.Resources.Web.";
@@ -195,7 +188,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Decrypt XOR-encrypted resource in memory
         var enc = new byte[encStream.Length];
         encStream.ReadExactly(enc);
         encStream.Dispose();
@@ -233,7 +225,6 @@ public partial class MainWindow : Window
         _       => "application/octet-stream"
     };
 
-    // ── JS helpers ──────────────────────────────────────────────────
 
     static string JsStr(string s) => JsonSerializer.Serialize(s);
 
@@ -246,7 +237,6 @@ public partial class MainWindow : Window
         });
     }
 
-    // ── Game path detection ─────────────────────────────────────────
 
     void DetectGamePath()
     {
@@ -266,7 +256,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Installation ────────────────────────────────────────────────
 
     internal async Task RunInstallation(string gamePath, string vhMode, bool backup)
     {
@@ -278,7 +267,6 @@ public partial class MainWindow : Window
             if (!Directory.Exists(baseDir))
                 throw new Exception("Không tìm thấy thư mục game. Vui lòng kiểm tra lại đường dẫn.");
 
-            // Check write access before doing anything (fixes UAC issues gracefully)
             try
             {
                 var testFile = Path.Combine(baseDir, "vh_write_test.tmp");
@@ -287,7 +275,7 @@ public partial class MainWindow : Window
             }
             catch (UnauthorizedAccessException)
             {
-                // Let frontend know it needs admin rights
+                
                 RunScript("if(window.onAdminRequired) window.onAdminRequired(); else window.onInstallError('Thư mục game đang bị khóa bởi Windows. Vui lòng chạy Launcher bằng Quyền Admin.');");
                 return;
             }
@@ -311,7 +299,6 @@ public partial class MainWindow : Window
 
             var toDownload = new List<(string Name, string Url, long Size, string Hash)>();
 
-            // Skip the default font pak if user has a custom font pak (any *_100_P.pak that isn't UTMAlexander_100_P.pak)
             bool hasCustomFont = Directory.Exists(modDir) &&
                 Directory.GetFiles(modDir, "*_100_P.pak")
                          .Any(f => !Path.GetFileName(f).Equals("UTMAlexander_100_P.pak", StringComparison.OrdinalIgnoreCase));
@@ -382,8 +369,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Determine which files actually need downloading, and compute totalBytes from those only
-            // so the progress bar doesn't jump when files are skipped.
+            
             var needsUpdateSet = new HashSet<string>();
             long totalBytes = 0;
             foreach (var (name, _, size, hash) in toDownload)
@@ -461,7 +447,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Launch game ─────────────────────────────────────────────────
 
     internal void LaunchGame(string gamePath, bool dx11)
     {
@@ -492,7 +477,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Launcher update check ────────────────────────────────────────
 
     const string LauncherReleasesApiUrl = "https://api.github.com/repos/CallMeDangDev/WuwaVHLauncher/releases/latest";
     const string LauncherReleasesPageUrl = "https://github.com/CallMeDangDev/WuwaVHLauncher/releases";
@@ -523,7 +507,6 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    // ── VH release notes ─────────────────────────────────────────────
 
     const string VHReleasesApiUrl = "https://api.github.com/repos/CallMeDangDev/WuwaVH/releases/latest";
 
@@ -547,7 +530,6 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    // ── Media download & caching ────────────────────────────────────
 
     internal async Task PerformLauncherUpdate(string version, string zipUrl)
     {
@@ -558,7 +540,6 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(updateDir);
             var zipPath = Path.Combine(updateDir, "update.zip");
 
-            // Download zip
             RunScript("window.onLauncherUpdateProgress(0, '\u0110ang tải xuống...')");
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("WuwaVHLauncher/1.0");
@@ -590,12 +571,10 @@ public partial class MainWindow : Window
                 }
             }
 
-            // Extract
             RunScript("window.onLauncherUpdateProgress(95, 'Đang giải nén...')");
             var extractDir = Path.Combine(updateDir, "extracted");
             ZipFile.ExtractToDirectory(zipPath, extractDir);
 
-            // Find new exe
             var newExe = Directory.GetFiles(extractDir, "WuwaVHLauncher.exe", SearchOption.AllDirectories)
                                    .FirstOrDefault()
                          ?? throw new Exception("Không tìm thấy WuwaVHLauncher.exe trong file zip.");
@@ -604,7 +583,6 @@ public partial class MainWindow : Window
                              ?? throw new Exception("Không xác định được đường dấn exe hiện tại.");
             var currentPid = Environment.ProcessId;
 
-            // Write PowerShell updater script
             var scriptPath = Path.Combine(updateDir, "updater.ps1");
             var newExeEscaped = newExe.Replace("'", "''");
             var currentExeEscaped = currentExe.Replace("'", "''");
@@ -632,7 +610,6 @@ public partial class MainWindow : Window
             RunScript("window.onLauncherUpdateProgress(100, 'Khởi động lại...')");
             await Task.Delay(800);
 
-            // Launch updater detached then exit
             Process.Start(new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -774,7 +751,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ── Utilities ───────────────────────────────────────────────────
 
     static bool VerifySha256(string path, string expected)
     {
@@ -789,7 +765,6 @@ public partial class MainWindow : Window
     }
 }
 
-// ── WebView2 Host Object Bridge ─────────────────────────────────────
 
 [ClassInterface(ClassInterfaceType.AutoDual)]
 [ComVisible(true)]
@@ -922,7 +897,6 @@ public class LauncherBridge
             if (File.Exists(versionDll))
                 File.Delete(versionDll);
 
-            // Clear cached version hashes
             var versionCache = Path.Combine(MainWindow.AppDataFolder, "versions.json");
             if (File.Exists(versionCache))
                 File.Delete(versionCache);
@@ -957,11 +931,10 @@ public class LauncherBridge
                     Application.Current.Shutdown();
                 }
             }
-            catch { /* User cancelled UAC prompt */ }
+            catch {  }
         });
     }
 
-    // ── Font tuỳ chỉnh ───────────────────────────────────────────────────────
 
     static readonly string RepoFontPak = "UTMAlexander_100_P.pak";
 
@@ -1009,7 +982,6 @@ public class LauncherBridge
                 var modDir = Path.Combine(gamePath, @"Client\Binaries\Win64\wuwaVietHoa");
                 Directory.CreateDirectory(modDir);
 
-                // Remove every existing *_100_P.pak before writing the new one
                 foreach (var old in Directory.GetFiles(modDir, "*_100_P.pak"))
                     try { File.Delete(old); } catch { }
 
@@ -1043,7 +1015,6 @@ public class LauncherBridge
                         try { File.Delete(f); } catch { }
                 }
 
-                // Clear cached hash for the repo font so it gets re-downloaded
                 var versionCachePath = Path.Combine(MainWindow.AppDataFolder, "versions.json");
                 if (File.Exists(versionCachePath))
                 {
@@ -1066,7 +1037,6 @@ public class LauncherBridge
             }
         });
 
-    // ── High Performance Mode ─────────────────────────────────────────────────
 
     static string GetPerfIniPath(string gamePath) =>
         Path.Combine(gamePath, @"Client\Saved\Config\WindowsNoEditor\Engine.ini");
@@ -1321,8 +1291,6 @@ public class LauncherBridge
     public bool GetPerformanceConfigActive(string gamePath) =>
         File.Exists(GetPerfIniBackupPath(gamePath));
 }
-
-
 
 
 

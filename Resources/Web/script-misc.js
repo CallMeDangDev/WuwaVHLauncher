@@ -5,9 +5,6 @@ function checkLauncherUpdate(silent = true) {
     if (bridge()) bridge().CheckLauncherUpdate();
 }
 
-/* =============================================
-   RELEASE NOTES
-   ============================================= */
 function loadReleaseNotes() {
     if (bridge()) {
         bridge().GetVHReleaseNotes();
@@ -24,6 +21,9 @@ function initSidePanel() {
     const btn   = document.getElementById('rnToggle');
     const panel = document.getElementById('sidePanel');
     if (!btn || !panel) return;
+    panel.addEventListener('animationend', () => {
+        panel.style.animation = 'none';
+    }, { once: true });
     btn.addEventListener('click', () => panel.classList.toggle('collapsed'));
 }
 
@@ -38,7 +38,6 @@ function _rnMd(text) {
         .replace(/`([^`]+)`/g,     '<code>$1</code>');
 
     for (const raw of lines) {
-        // Escape HTML then apply inline markdown
         const safe = raw
             .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
@@ -58,7 +57,7 @@ function _rnMd(text) {
             if (!inUl) { html += '<ul>'; inUl = true; }
             html += `<li>${inline(mLi[1])}</li>`;
         }
-        else if (safe.trim() === '') { /* skip blank lines */ }
+        else if (safe.trim() === '') {  }
         else html += `<p>${inline(safe)}</p>`;
     }
 
@@ -90,7 +89,6 @@ window.onVHReleaseNotes = (tag, dateStr, body, name) => {
             : '<p style="opacity:0.4">Không có thông tin.</p>';
     }
 
-    // Position above audio player
     const ap  = document.getElementById('audioPlayer');
     const gap = parseInt(getComputedStyle(document.documentElement)
         .getPropertyValue('--edge-gap')) || 20;
@@ -106,14 +104,11 @@ window.onLauncherUpdateAvailable = (latestVer, downloadUrl) => {
     _launcherUpdateUrl = downloadUrl;
     _launcherUpdateVer = latestVer;
 
-    // Badge in dropdown
     const badge = document.getElementById('rpUpdateBadge');
     if (badge) badge.style.display = '';
 
-    // Highlight version label
     document.querySelector('.rp-version')?.classList.add('has-update');
 
-    // Show modal
     const overlay  = document.getElementById('luOverlay');
     const verEl    = document.getElementById('luModalVer');
     const pbar     = document.getElementById('luPbar');
@@ -133,7 +128,6 @@ window.onLauncherUpdateAvailable = (latestVer, downloadUrl) => {
 
     btnUpdate?.addEventListener('click', () => {
         if (!bridge()) return;
-        // Hide buttons, show progress bar
         if (btns) btns.style.display = 'none';
         if (pbar) pbar.style.display = '';
         btnUpdate.disabled = true;
@@ -168,8 +162,6 @@ function loadSettings() {
             }
         } catch(e) {}
     }
-    // If path already saved, auto-check on startup
-    // (if path comes from DetectGamePath instead, onGamePathDetected handles it)
     if (S.gamePath && !S.autoCheckDone && !S.installing) {
         S.autoCheckDone = true;
         setTimeout(() => { if (!S.installing) startInstall(); }, 800);
@@ -200,9 +192,7 @@ async function browseFolder() {
     }
 }
 
-/* ===========================================
-   WATER RIPPLE
-   =========================================== */
+
 function initWaterRipple() {
     document.addEventListener('click', e => {
         const origin = document.createElement('div');
@@ -210,12 +200,10 @@ function initWaterRipple() {
         origin.style.left = e.clientX + 'px';
         origin.style.top  = e.clientY + 'px';
 
-        // Central splash dot
         const splash = document.createElement('div');
         splash.className = 'ripple-splash';
         origin.appendChild(splash);
 
-        // 4 rings — each slightly larger delay & slower duration for natural decay
         const config = [
             { delay:   0, dur:  880 },
             { delay: 110, dur: 1050 },
@@ -235,9 +223,7 @@ function initWaterRipple() {
     });
 }
 
-/* ===========================================
-   AUDIO PLAYER
-   =========================================== */
+
 function initAudioPlayer() {
     const audio      = document.getElementById('bgMusic');
     const player     = document.getElementById('audioPlayer');
@@ -256,7 +242,6 @@ function initAudioPlayer() {
     const volLabel   = document.getElementById('apVolLabel');
     if (!audio || !player) return;
 
-    // --- Restore saved volume (default 35) ---
     const savedVol = parseInt(localStorage.getItem('apVolume') ?? '35', 10);
     const initVol  = Math.max(0, Math.min(100, isNaN(savedVol) ? 35 : savedVol));
     audio.volume   = initVol / 100;
@@ -298,7 +283,6 @@ function initAudioPlayer() {
         }
     }
 
-    // Exposed for window.onMediaReady â€” called once audio src is available
     window.apSetAudioSource = (url) => {
         if (!url) return;
         audio.src = url;
@@ -306,20 +290,17 @@ function initAudioPlayer() {
         audio.addEventListener('canplaythrough', () => {
             audio.play().then(() => setPlaying(true)).catch(()=>{});
         }, { once: true });
-        // Fallback: first user click
         document.addEventListener('click', function onFirstClick() {
             if (audio.paused && audio.src) audio.play().then(()=>setPlaying(true)).catch(()=>{});
             document.removeEventListener('click', onFirstClick);
         });
     };
 
-    // Play / Pause button
     btnPlay?.addEventListener('click', () => {
         if (audio.paused) { audio.play().then(() => setPlaying(true)).catch(() => {}); }
         else              { audio.pause(); setPlaying(false); }
     });
 
-    // Seek
     track?.addEventListener('click', e => {
         const rect  = track.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -340,7 +321,6 @@ function initAudioPlayer() {
         btnShuffle.classList.toggle('ap-btn--active', shuffleOn);
     });
 
-    // Volume slider
     volSlider?.addEventListener('input', () => {
         const v = parseInt(volSlider.value, 10);
         audio.volume = v / 100;
@@ -351,7 +331,6 @@ function initAudioPlayer() {
         localStorage.setItem('apVolume', v);
     });
 
-    // Volume icon = mute toggle
     btnVolBtn?.addEventListener('click', () => {
         audio.muted = !audio.muted;
         const displayVol = audio.muted ? 0 : parseInt(volSlider?.value ?? '35', 10);
@@ -359,7 +338,6 @@ function initAudioPlayer() {
         if (volLabel) volLabel.textContent = audio.muted ? '0' : (volSlider?.value ?? '35');
     });
 
-    // Sync events
     audio.addEventListener('timeupdate',     updateProgress);
     audio.addEventListener('loadedmetadata', () => { durEl.textContent = fmt(audio.duration); });
     audio.addEventListener('play',  () => setPlaying(true));
@@ -374,12 +352,8 @@ function toggleBgm(on) {
     else    { a.pause(); }
 }
 
-/* ===========================================
-   TOAST
-   =========================================== */
-/* ===========================================
-   CONFIRM MODAL
-   =========================================== */
+
+
 function showConfirm(message) {
     return new Promise(resolve => {
         const modal  = document.getElementById('confirmModal');
@@ -416,9 +390,7 @@ function toast(msg, type='info') {
     }, 3500);
 }
 
-/* ===========================================
-   CÀI FONT TUỲ CHỈNH
-   =========================================== */
+
 const FC = {
     fontPath: '',
     building: false,
@@ -430,7 +402,6 @@ function initFontCreator() {
     document.getElementById('fcRevertBtn')?.addEventListener('click', fcRevert);
 }
 
-// Called whenever the Font page becomes visible
 function fcRefreshStatus() {
     if (!S.gamePath) {
         fcSetCurrentFont(null);
@@ -458,7 +429,6 @@ function fcSetCurrentFont(name) {
 
 async function fcBrowseFont() {
     if (!bridge()) {
-        // Demo mode
         FC.fontPath = 'C:\\Fonts\\MyFont.ttf';
         document.getElementById('fcFontDisplay').textContent = 'MyFont.ttf';
         document.getElementById('fcOutputName').value = 'MyFont';
@@ -469,7 +439,7 @@ async function fcBrowseFont() {
     if (!path) return;
     FC.fontPath = path;
     const fileName = path.split('\\').pop().split('/').pop();
-    const baseName = fileName.replace(/\.[^.]+$/, ''); // strip extension
+    const baseName = fileName.replace(/\.[^.]+$/, ''); 
     document.getElementById('fcFontDisplay').textContent = fileName;
     document.getElementById('fcOutputName').value = baseName;
     document.getElementById('fcBuildBtn').disabled = false;
@@ -551,9 +521,6 @@ function fcSetStatus(msg, isError, isSuccess = false) {
     el.className = 'fc-status' + (isError ? ' fc-status--err' : isSuccess ? ' fc-status--ok' : '');
     el.textContent = msg;
 }
-
-
-
 
 
 

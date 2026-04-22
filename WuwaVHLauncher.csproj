@@ -3,12 +3,11 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
 
-    <!-- Single-file publish settings -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -31,7 +30,6 @@
     <Resource Include="Resources\Images\bg-default.jpg" />
   </ItemGroup>
 
-  <!-- XOR-encrypt web resources so ILSpy resource extraction yields garbage -->
   <UsingTask TaskName="XorEncryptFiles" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
       <SourceDir ParameterType="System.String" Required="true" />
@@ -64,15 +62,14 @@
       Key="WuwaVH@2026!xK9#mQ" />
   </Target>
 
-  <!-- Encrypted web resources with correct logical names -->
   <ItemGroup>
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\index.html"          LogicalName="WuwaVHLauncher.Resources.Web.index.html" />
-    <!-- CSS modules -->
+    
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\styles-base.css"     LogicalName="WuwaVHLauncher.Resources.Web.styles-base.css" />
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\styles-panel.css"    LogicalName="WuwaVHLauncher.Resources.Web.styles-panel.css" />
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\styles-effects.css"  LogicalName="WuwaVHLauncher.Resources.Web.styles-effects.css" />
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\styles-font.css"     LogicalName="WuwaVHLauncher.Resources.Web.styles-font.css" />
-    <!-- JS modules -->
+    
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\script-core.js"      LogicalName="WuwaVHLauncher.Resources.Web.script-core.js" />
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\script-fx.js"        LogicalName="WuwaVHLauncher.Resources.Web.script-fx.js" />
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\script-nav.js"       LogicalName="WuwaVHLauncher.Resources.Web.script-nav.js" />
@@ -82,7 +79,6 @@
     <EmbeddedResource Include="$(IntermediateOutputPath)EncryptedWeb\assets\logo.png"     LogicalName="WuwaVHLauncher.Resources.Web.assets.logo.png" />
   </ItemGroup>
 
-  <!-- Remove XML docs, PDB and empty folders from publish output -->
   <Target Name="CleanPublishExtras" AfterTargets="Publish">
     <ItemGroup>
       <_ExtraFiles Include="$(PublishDir)*.xml" />

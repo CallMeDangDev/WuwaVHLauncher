@@ -10,18 +10,16 @@
     <link rel="stylesheet" href="styles-font.css">
 </head>
 <body>
-    <!-- Background Video Layer -->
+    
     <div class="bg-layer">
         <video id="bgVideo" muted loop playsinline preload="auto">
-            <!-- src set by JS once asset is downloaded to AppData cache -->
+            
         </video>
         <div class="bg-vignette"></div>
     </div>
 
-    <!-- Floating Particles -->
     <canvas id="particleCanvas"></canvas>
 
-    <!-- ===== LEFT SIDEBAR: Release Notes ===== -->
     <div class="side-panel" id="sidePanel" style="display:none;">
         <div class="rn-content">
             <div class="rn-head">
@@ -45,20 +43,20 @@
         </button>
     </div>
 
-    <!-- ===== TOP BAR ===== -->
     <header class="top-bar" id="topBar">
         <div class="top-bar__left">
             <img src="assets/logo.png" alt="Wuthering Waves" class="top-bar__logo" draggable="false">
         </div>
-        <nav class="top-nav" id="topNav">
-            <button class="top-nav__item active" data-page="home">HOME</button>
-            <button class="top-nav__item" data-page="performance">HIỆU NĂNG</button>
-            <button class="top-nav__item" data-page="font-creator">FONT TUỲ CHỈNH</button>
-            <div class="top-nav__indicator" id="topNavIndicator">
-                <canvas id="navWaveCanvas"></canvas>
-            </div>
-        </nav>
         <div class="top-bar__right">
+            <nav class="top-nav" id="topNav">
+                <button class="top-nav__item active" data-page="home">HOME</button>
+                <button class="top-nav__item" data-page="performance">HIỆU NĂNG</button>
+                <button class="top-nav__item" data-page="font-creator">FONT TUỲ CHỈNH</button>
+                <div class="top-nav__indicator" id="topNavIndicator">
+                    <canvas id="navWaveCanvas"></canvas>
+                </div>
+            </nav>
+            <div class="top-bar__sep"></div>
             <button class="top-bar__btn" id="btnMinimize" title="Thu nhỏ">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M19 13H5v-2h14v2z"/></svg>
             </button>
@@ -68,7 +66,6 @@
         </div>
     </header>
 
-    <!-- ===== LAUNCHER UPDATE MODAL ===== -->
     <div class="lu-overlay" id="luOverlay" style="display:none;" aria-modal="true">
         <div class="lu-modal" id="luModal">
             <div class="lu-modal__icon">
@@ -77,7 +74,7 @@
             <h3 class="lu-modal__title">Có phiên bản mới!</h3>
             <p class="lu-modal__ver" id="luModalVer"></p>
             <p class="lu-modal__desc">Bạn có muốn cập nhật Launcher ngay bây giờ không?</p>
-            <!-- Progress (hidden until update starts) -->
+            
             <div class="lu-pbar" id="luPbar" style="display:none;">
                 <div class="lu-pbar__text" id="luPbarText">0%</div>
                 <div class="lu-pbar__track">
@@ -92,10 +89,8 @@
         </div>
     </div>
 
-    <!-- ===== RIGHT PANEL ===== -->
     <aside class="right-panel" id="rightPanel">
 
-        <!-- Countdown widget (above download bar) -->
         <div class="update-countdown" id="updateCountdown" style="display:none;">
             <div class="uc-label">PHIÊN BẢN GAME TIẾP THEO</div>
             <div class="uc-timer">
@@ -122,7 +117,6 @@
             <div class="uc-bar"><div class="uc-bar__fill" id="ucBarFill"></div></div>
         </div>
 
-        <!-- Asset status / download progress (where folder picker was) -->
         <div class="rp-status" id="rpStatus" style="display:none;">
             <div class="rp-status__row">
                 <span class="rp-status__text" id="rpStatusText">Đang kiểm tra cập nhật...</span>
@@ -134,14 +128,12 @@
             <div class="rp-status__foot" id="mediaProgressSize"></div>
         </div>
 
-        <!-- Install progress (existing feature) -->
         <div class="progress" id="progressSection" style="display:none;">
             <div class="progress__head"><span id="progressText">Đang tải...</span><span id="progressPct">0%</span></div>
             <div class="progress__track"><div class="progress__fill" id="progressFill"></div></div>
             <div class="progress__foot"><span id="progressSpeed"></span><span id="progressSize"></span></div>
         </div>
 
-        <!-- Dropdown menu (opens above the actions row) -->
         <div class="rp-dropdown" id="rpDropdown">
             <button class="rp-dropdown__item" id="menuGameDir">
                 <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
@@ -171,7 +163,6 @@
             </button>
         </div>
 
-        <!-- DX11 checkbox — only visible when game is installed/playable -->
         <div class="dx11-row" id="dx11Row" style="display:none;">
             <label class="dx11-label" for="chkDx11">
                 <input type="checkbox" id="chkDx11" class="dx11-input">
@@ -180,18 +171,26 @@
             </label>
         </div>
 
-        <!-- Actions row: hamburger + start button -->
         <div class="rp-actions">
             <button class="rp-menu__btn" id="btnMenu" title="Menu">
                 <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
             </button>
             <button class="start-btn" id="btnStart">
                 <span class="start-btn__shine"></span>
+                
+                <svg class="start-btn__star" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M40 0 L46 28 L58 8 L48 30 L72 18 L50 34 L80 40 L50 46 L72 62 L48 50 L58 72 L46 52 L40 80 L34 52 L22 72 L32 50 L8 62 L30 46 L0 40 L30 34 L8 18 L32 30 L22 8 L34 28 Z" fill="url(#starGrad)"/>
+                    <defs><linearGradient id="starGrad" x1="0" y1="0" x2="80" y2="80"><stop offset="0%" stop-color="#ff4060"/><stop offset="50%" stop-color="#ff6080"/><stop offset="100%" stop-color="#ffb040"/></linearGradient></defs>
+                </svg>
+                
+                <svg class="start-btn__deco start-btn__deco--tl" viewBox="0 0 12 12"><polygon points="6,0 12,6 6,12 0,6" fill="#ffd040"/></svg>
+                <svg class="start-btn__deco start-btn__deco--tr" viewBox="0 0 12 12"><polygon points="6,0 12,6 6,12 0,6" fill="#ffd040"/></svg>
+                <svg class="start-btn__deco start-btn__deco--bl" viewBox="0 0 12 12"><polygon points="6,0 12,6 6,12 0,6" fill="#ffd040"/></svg>
+                <svg class="start-btn__deco start-btn__deco--br" viewBox="0 0 12 12"><polygon points="6,0 12,6 6,12 0,6" fill="#ffb830"/></svg>
                 <span class="start-btn__label" id="startBtnText">Cài Việt Hoá</span>
             </button>
         </div>
 
-        <!-- Version display -->
         <div class="rp-version">
             <span id="verApp"></span>
             <span id="verVH"></span>
@@ -199,13 +198,9 @@
 
     </aside>
 
-
-
-    <!-- ===== HIGH PERFORMANCE MODE PAGE ===== -->
     <div id="pagePerformance" class="page-overlay" style="display:none;">
         <div class="pm-panel">
 
-            <!-- Header -->
             <div class="pm-panel__header">
                 <div class="pm-header__icon">
                     <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
@@ -220,7 +215,6 @@
                 </div>
             </div>
 
-            <!-- Toggle grid -->
             <div class="pm-body">
 
                 <div class="pm-group-label">Bóng tối</div>
@@ -383,9 +377,8 @@
                     </label>
                 </div>
 
-            </div><!-- .pm-body -->
+            </div>
 
-            <!-- Footer -->
             <div class="pm-footer">
                 <p class="pm-note">
                     <svg viewBox="0 0 24 24" width="12" height="12"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
@@ -400,18 +393,15 @@
         </div>
     </div>
 
-    <!-- ===== CÀI FONT TUỲ CHỈNH PAGE ===== -->
     <div id="pageFontCreator" class="page-overlay" style="display:none;">
         <div class="fc-panel">
 
-            <!-- Header -->
             <div class="fc-panel__header">
                 <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M9.6 14L12 7.2 14.4 14M11 5L5.5 19h2.2l1.1-3H15l1.1 3h2.2L13 5h-2z"/></svg>
                 <span>Cài Font Tuỳ Chỉnh</span>
             </div>
             <p class="fc-panel__sub">Thay thế font mặc định của bản Việt Hoá bằng font của bạn</p>
 
-            <!-- Current font status -->
             <div class="fc-current" id="fcCurrent">
                 <span class="fc-current__label">Font hiện tại:</span>
                 <span class="fc-current__name" id="fcCurrentName">Đang tải...</span>
@@ -423,7 +413,6 @@
 
             <div class="fc-divider"></div>
 
-            <!-- Font file picker -->
             <div class="fc-field">
                 <label class="fc-label">File Font mới <span class="fc-label__note">(TTF / OTF)</span></label>
                 <div class="fc-file-row">
@@ -432,7 +421,6 @@
                 </div>
             </div>
 
-            <!-- Output name -->
             <div class="fc-field">
                 <label class="fc-label">Tên nhận dạng</label>
                 <div class="fc-name-row">
@@ -441,10 +429,8 @@
                 </div>
             </div>
 
-            <!-- Status / progress -->
             <div class="fc-status" id="fcStatus" style="display:none;"></div>
 
-            <!-- Action buttons -->
             <div class="fc-actions">
                 <button class="fc-btn fc-btn--primary" id="fcBuildBtn" disabled>
                     <svg viewBox="0 0 24 24" width="15" height="15"><path fill="currentColor" d="M5 13h11.17l-4.88 4.88c-.39.39-.39 1.03 0 1.42.39.39 1.02.39 1.41 0l6.59-6.59c.39-.39.39-1.02 0-1.41l-6.58-6.6c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41L16.17 11H5c-.55 0-1 .45-1 1s.45 1 1 1z"/></svg>
@@ -455,7 +441,6 @@
         </div>
     </div>
 
-    <!-- ===== AUDIO PLAYER ===== -->
     <div class="audio-player" id="audioPlayer">
         <div class="ap-art">
             <svg class="ap-art__icon" viewBox="0 0 24 24" width="28" height="28">
@@ -495,7 +480,7 @@
                     <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
                 </button>
             </div>
-            <!-- Volume row -->
+            
             <div class="ap-vol">
                 <button class="ap-btn ap-btn--sm" id="apVolBtn" title="Tắt / Bật tiếng">
                     <svg id="apVolIcon" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
@@ -512,7 +497,6 @@
 
     <div id="toasts"></div>
 
-    <!-- ===== CONFIRM MODAL ===== -->
     <div id="confirmModal" class="modal-backdrop" style="display:none;">
         <div class="modal-box">
             <div class="modal-title">
@@ -528,7 +512,6 @@
         </div>
     </div>
 
-    <!-- ===== ADMIN PERMISSION MODAL ===== -->
     <div id="adminModal" class="modal-backdrop" style="display:none;">
         <div class="modal-box admin-modal">
             <div class="admin-modal__header">
@@ -568,7 +551,7 @@
         </div>
     </div>
     <audio id="bgMusic" loop preload="auto">
-        <!-- src set by JS once asset is downloaded to AppData cache -->
+        
     </audio>
     <script src="script-core.js"></script>
     <script src="script-fx.js"></script>

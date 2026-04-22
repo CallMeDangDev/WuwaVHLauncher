@@ -1,6 +1,4 @@
-﻿/* =============================================
-   WUTHERING WAVES VIỆT HOÁ LAUNCHER - Script
-   ============================================= */
+﻿
 
 const S = {
     page: 'home',
@@ -24,9 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loadVersions();
 });
 
-/* ===========================================
-   PARTICLES
-   =========================================== */
 function initParticles() {
     const c = document.getElementById('particleCanvas');
     if (!c) return;
@@ -82,30 +77,13 @@ function initParticles() {
     })();
 }
 
-/* ===========================================
-   NAV WAVE — Oscillation / Sound-Wave Indicator
-   =========================================== */
 let navWaveT = 0;      // global time tick
-
-// Indicator lerp state
 let _indCurL = 0, _indCurW = 0;   // currently rendered bounds (px from nav left)
 let _indTgtL = 0, _indTgtW = 0;   // target bounds
 let _indReady = false;
 
 function initNavWave() {
-    const canvas = document.getElementById('navWaveCanvas');
-    if (!canvas) return;
-    (function loop() {
-        if (_indReady) {
-            // Exponential lerp — ~0.10 per frame at 60 fps ≈ smooth 350 ms settle
-            const k = 0.10;
-            _indCurL += (_indTgtL - _indCurL) * k;
-            _indCurW += (_indTgtW - _indCurW) * k;
-        }
-        drawNavWave(canvas);
-        navWaveT++;
-        requestAnimationFrame(loop);
-    })();
+    return;
 }
 
 function drawNavWave(canvas) {
@@ -121,17 +99,11 @@ function drawNavWave(canvas) {
     if (cW <= 1) return;
 
     const t = navWaveT;
-
-    // Arch envelope relative to indicator region: 0 at edges, 1 at centre
     const arch = x => Math.sin(Math.PI * (x - cL) / cW);
-
-    // Slow breathe
     const breathe = 0.88 + 0.12 * Math.sin(t * 0.010);
+    const MAIN_AMP = H * 0.12;
 
-    // Tall parabolic arch
-    const MAIN_AMP = H * 0.44;
-
-    const N = 6;
+    const N = 4;
 
     const drawArc = (side) => {
         for (let i = 0; i < N; i++) {
@@ -140,26 +112,26 @@ function drawNavWave(canvas) {
             const freq   = 0.044 + i * 0.007;
             const speed  = 0.030 + i * 0.004;
             const phase  = i * 0.85 + (side > 0 ? Math.PI : 0);
-            const oscAmp = H * 0.040 * scale;
+            const oscAmp = H * 0.015 * scale;
 
             const yLine  = x =>
-                H * 0.50
+                H * 0.72
                 + side * amp * arch(x)
                 + oscAmp * arch(x) * Math.sin((x - cL) * freq + t * speed + phase);
 
             const outerRatio = scale;
-            const op   = 0.15 + outerRatio * 0.82;
-            const lw   = 0.5  + outerRatio * 1.8;
-            const blur = 2    + outerRatio * 14;
+            const op   = 0.10 + outerRatio * 0.45;
+            const lw   = 0.4  + outerRatio * 1.2;
+            const blur = 2    + outerRatio * 8;
 
             ctx.save();
-            ctx.shadowColor = `rgba(242,210,100,${op * 0.75})`;
+            ctx.shadowColor = `rgba(232,85,126,${op * 0.55})`;
             ctx.shadowBlur  = blur;
             ctx.beginPath();
             for (let x = cL; x <= cL + cW; x++) {
                 x === cL ? ctx.moveTo(x, yLine(x)) : ctx.lineTo(x, yLine(x));
             }
-            ctx.strokeStyle = `rgba(242,212,100,${op})`;
+            ctx.strokeStyle = `rgba(255,107,157,${op})`;
             ctx.lineWidth   = lw;
             ctx.stroke();
             ctx.restore();
@@ -170,14 +142,10 @@ function drawNavWave(canvas) {
     drawArc(+1); // bottom arcs
 }
 
-/* ===========================================
-   TOP NAV
-   =========================================== */
 function initTopNav() {
     document.querySelectorAll('.top-nav__item').forEach(btn => {
         btn.addEventListener('click', () => switchPage(btn.dataset.page));
     });
-    // Position indicator then start oscillation
     requestAnimationFrame(() => {
         updateNavIndicator();
         initNavWave();
@@ -192,8 +160,6 @@ async function checkAdminIfNeeded() {
     try {
         const result = await bridge().CheckGameFolderWriteAccess(S.gamePath);
         if (result !== 'admin_required') return;
-
-        // Show the dedicated admin modal
         const pathEl = document.getElementById('adminModalPath');
         if (pathEl) pathEl.textContent = S.gamePath;
 
@@ -232,7 +198,6 @@ function switchPage(page) {
     document.getElementById('rightPanel').style.display        = isHome                  ? '' : 'none';
     document.getElementById('pageFontCreator').style.display   = page === 'font-creator' ? '' : 'none';
     document.getElementById('pageGraphics').style.display      = page === 'graphics'     ? '' : 'none';
-    // Hide bottom-left widgets when not on home to avoid overlap
     const ap = document.getElementById('audioPlayer');
     const uc = document.getElementById('updateCountdown');
     if (ap) ap.style.display = isHome ? '' : 'none';
@@ -254,13 +219,10 @@ function updateNavIndicator() {
     _indTgtW = actRect.width;
 
     if (!_indReady) {
-        // First call: snap immediately, no animation
         _indCurL = _indTgtL;
         _indCurW = _indTgtW;
         _indReady = true;
     }
-
-    // Resize canvas to cover the full nav bar (only once / on layout change)
     const canvas = document.getElementById('navWaveCanvas');
     if (canvas) {
         const fw = Math.round(navRect.width);
@@ -272,13 +234,9 @@ function updateNavIndicator() {
     }
 }
 
-/* ===========================================
-   TOP BAR
-   =========================================== */
 function initTopBar() {
     document.getElementById('btnMinimize')?.addEventListener('click', () => bridge()?.MinimizeWindow());
     document.getElementById('btnClose')?.addEventListener('click', () => bridge()?.CloseWindow());
-    // Drag whole window â€” exclude interactive elements
     document.addEventListener('mousedown', e => {
         if (e.button !== 0) return;
         if (e.target.closest('button, a, input, select, label, .sidebar__inner, .right-panel')) return;
@@ -286,13 +244,8 @@ function initTopBar() {
     });
 }
 
-/* ===========================================
-   BOTTOM BAR
-   =========================================== */
 function initBottomBar() {
     document.getElementById('btnStart')?.addEventListener('click', handleStart);
-
-    // Hamburger menu
     const menuBtn  = document.getElementById('btnMenu');
     const dropdown = document.getElementById('rpDropdown');
     menuBtn?.addEventListener('click', e => {
@@ -304,8 +257,6 @@ function initBottomBar() {
         dropdown?.classList.remove('open');
         document.getElementById('btnMenu')?.classList.remove('active');
     });
-
-    // Dropdown items
     document.getElementById('menuGameDir')?.addEventListener('click', async () => {
         dropdown?.classList.remove('open');
         document.getElementById('btnMenu')?.classList.remove('active');
@@ -456,7 +407,6 @@ function launchGame() {
     }
 }
 
-/* C# callbacks */
 window.onProgressUpdate  = (p,t,sp,sz) => setProgress(p,t,sp,sz);
 window.onInstallComplete = () => installDone();
 window.onInstallError = msg => {
@@ -481,8 +431,6 @@ window.onAdminRequired = () => {
     prog.style.display = 'none';
     const dx11Row = document.getElementById('dx11Row');
     if (dx11Row) dx11Row.style.display = 'none';
-    
-    // Change button behavior temporarily for restart
     const oldHandler = handleStart;
     btn.removeEventListener('click', oldHandler);
     
@@ -496,17 +444,12 @@ window.onAdminRequired = () => {
 window.onGamePathDetected = path => {
     S.gamePath = path;
     S.cfg.gamePath = path;
-    // Auto check for update on startup once path is known
     if (!S.autoCheckDone && !S.installing) {
         S.autoCheckDone = true;
         setTimeout(() => { if (!S.installing) startInstall(); }, 800);
     }
 };
 
-/* Media streaming callbacks (called by C# background download) */
-/* ===========================================
-   UPDATE COUNTDOWN
-   =========================================== */
 (function() {
     let _targetDate = null;
     let _totalMs = 0;
@@ -522,7 +465,6 @@ window.onGamePathDetected = path => {
         const diff = _targetDate - now;
 
         if (diff <= 0) {
-            // Countdown finished — show all zeros, mark done
             ['ucDays','ucHours','ucMins','ucSecs'].forEach(id => {
                 const e = document.getElementById(id);
                 if (e) e.textContent = '00';
@@ -576,7 +518,6 @@ window.onGamePathDetected = path => {
         if (isNaN(target.getTime())) return;
 
         _targetDate = target.getTime();
-        // Use 6-week cycle as total span for the progress bar
         _totalMs = 6 * 7 * 24 * 3600 * 1000;
 
         el.style.display = '';
@@ -625,7 +566,6 @@ window.onMediaProgress = (pct, text, speed, size) => {
 };
 
 window.onMediaReady = (bgmUrl, videoUrl) => {
-    // Load video â€” keep hidden until first frame is decoded to avoid flash
     if (videoUrl) {
         const vid = document.getElementById('bgVideo');
         if (vid) {
@@ -639,16 +579,11 @@ window.onMediaReady = (bgmUrl, videoUrl) => {
             vid.addEventListener('canplay', onReady);
         }
     }
-    // Load audio via exposed setter (from initAudioPlayer)
     if (bgmUrl && window.apSetAudioSource) window.apSetAudioSource(bgmUrl);
     window.onMediaStatus('ready');
 };
 
-/* ===========================================
-   FOLDER POPUP
-   =========================================== */
 function initModal() {
-    // Legacy name kept for loadSettings compatibility
 }
 
 function openModal() {}
@@ -674,9 +609,6 @@ async function loadVersions() {
 
 let _launcherUpdateUrl = '';
 
-/* ===========================================
-   ĐỒ HOẠ PAGE — Data-driven settings UI
-   =========================================== */
 const GFX_CATS = [
     { id:'texture', title:'TEXTURE & LOD', items:[
         {k:'r.MipMapLODBias', l:'Anisotropic Filtering (LOD Bias)', d:'Khử răng cưa dị hướng. Giá trị càng thấp texture càng nét nhưng nặng hơn.', t:'slider', v:-2, min:-3, max:0, step:1, pw:3, pi:true},
@@ -770,7 +702,6 @@ async function gfxInit() {
             : 'chưa chọn thư mục game';
     }
     if (!_gfxBuilt) gfxBuild();
-    // Always load cache first (source of truth for UI), then load disk only to get path hint + fill uncached keys
     await gfxLoadCache();
     if (S.gamePath && bridge()) await gfxLoadFromDisk();
 }
@@ -813,8 +744,6 @@ function gfxBuild() {
     const container = document.getElementById('gfxScroll');
     if (!container) return;
     container.innerHTML = '';
-
-    // Initialize values to defaults
     GFX_CATS.forEach(cat => cat.items.forEach(it => {
         _gfxDefaults[it.k] = it.v;
         _gfxValues[it.k] = it.v;
@@ -823,8 +752,6 @@ function gfxBuild() {
     GFX_CATS.forEach(cat => {
         const catEl = document.createElement('div');
         catEl.className = 'gfx-cat';
-
-        // Category header (collapsible)
         const head = document.createElement('div');
         head.className = 'gfx-cat__head';
         head.innerHTML = '<svg viewBox="0 0 24 24" width="10" height="10"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>' + cat.title;
@@ -837,8 +764,6 @@ function gfxBuild() {
         cat.items.forEach(it => {
             const row = document.createElement('div');
             row.className = 'gfx-row';
-
-            // Info side
             const info = document.createElement('div');
             info.className = 'gfx-row__info';
             let html = `<div class="gfx-row__label">${it.l}<span class="gfx-row__key">${it.k}</span></div>`;
@@ -846,8 +771,6 @@ function gfxBuild() {
             if (it.w) html += `<div class="gfx-row__warn">${it.w}</div>`;
             info.innerHTML = html;
             row.appendChild(info);
-
-            // Control side
             const ctrl = document.createElement('div');
             ctrl.className = 'gfx-row__ctrl';
             ctrl.appendChild(gfxMakeCtrl(it));
@@ -861,8 +784,6 @@ function gfxBuild() {
     });
 
     gfxUpdatePerf();
-
-    // Bind footer buttons
     document.getElementById('gfxResetBtn')?.addEventListener('click', gfxReset);
     document.getElementById('gfxApplyBtn')?.addEventListener('click', gfxApply);
 }
@@ -973,12 +894,10 @@ function gfxParseNum(s) {
 function gfxOnChange() {
     gfxUpdatePerf();
     gfxSaveCache();
-    // Enable Apply button always once gfx page is active
     const btn = document.getElementById('gfxApplyBtn');
     if (btn) btn.disabled = false;
 }
 
-/* ── Performance calculator ── */
 function gfxNormItem(it) {
     const v = _gfxValues[it.k];
     let norm = 0;
@@ -1037,8 +956,6 @@ function gfxReset() {
 async function gfxApply() {
     if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
     if (!bridge()) { toast('Demo: không thể ghi file.', 'info'); return; }
-
-    // Build settings JSON from current values
     const settings = {};
     GFX_CATS.forEach(cat => cat.items.forEach(it => {
         settings[it.k] = String(_gfxValues[it.k]);
@@ -1077,22 +994,15 @@ async function gfxLoadFromDisk() {
             toast('Lỗi đọc Engine.ini: ' + (resp.message || ''), 'err');
             return;
         }
-
-        // Update path hint (always)
         const hint = document.getElementById('gfxConfigPath');
         if (hint && resp.path) hint.textContent = resp.path;
-
-        // Only apply file values when there is no cache — cache is the source of truth
         if (_gfxCacheHasData) return;
-
-        // Apply file values to UI (only for keys we manage)
         const data = resp.data || {};
         _gfxFileValues = {};
         GFX_CATS.forEach(cat => cat.items.forEach(it => {
             const fileKey = Object.keys(data).find(k => k.toLowerCase() === it.k.toLowerCase());
             if (fileKey !== undefined && data[fileKey] !== undefined) {
                 let val = data[fileKey];
-                // Parse to correct type
                 if (it.t === 'toggleStr') {
                     val = (val === 'true' || val === '1') ? 'true' : 'false';
                 } else if (it.t === 'toggle') {
@@ -1149,15 +1059,9 @@ function checkLauncherUpdate(silent = true) {
 window.onLauncherUpdateAvailable = (latestVer, downloadUrl) => {
     _launcherUpdateUrl = downloadUrl;
     _launcherUpdateVer = latestVer;
-
-    // Badge in dropdown
     const badge = document.getElementById('rpUpdateBadge');
     if (badge) badge.style.display = '';
-
-    // Highlight version label
     document.querySelector('.rp-version')?.classList.add('has-update');
-
-    // Show modal
     const overlay  = document.getElementById('luOverlay');
     const verEl    = document.getElementById('luModalVer');
     const pbar     = document.getElementById('luPbar');
@@ -1177,7 +1081,6 @@ window.onLauncherUpdateAvailable = (latestVer, downloadUrl) => {
 
     btnUpdate?.addEventListener('click', () => {
         if (!bridge()) return;
-        // Hide buttons, show progress bar
         if (btns) btns.style.display = 'none';
         if (pbar) pbar.style.display = '';
         btnUpdate.disabled = true;
@@ -1212,8 +1115,6 @@ function loadSettings() {
             }
         } catch(e) {}
     }
-    // If path already saved, auto-check on startup
-    // (if path comes from DetectGamePath instead, onGamePathDetected handles it)
     if (S.gamePath && !S.autoCheckDone && !S.installing) {
         S.autoCheckDone = true;
         setTimeout(() => { if (!S.installing) startInstall(); }, 800);
@@ -1244,22 +1145,15 @@ async function browseFolder() {
     }
 }
 
-/* ===========================================
-   WATER RIPPLE
-   =========================================== */
 function initWaterRipple() {
     document.addEventListener('click', e => {
         const origin = document.createElement('div');
         origin.className = 'ripple-origin';
         origin.style.left = e.clientX + 'px';
         origin.style.top  = e.clientY + 'px';
-
-        // Central splash dot
         const splash = document.createElement('div');
         splash.className = 'ripple-splash';
         origin.appendChild(splash);
-
-        // 4 rings — each slightly larger delay & slower duration for natural decay
         const config = [
             { delay:   0, dur:  880 },
             { delay: 110, dur: 1050 },
@@ -1279,9 +1173,6 @@ function initWaterRipple() {
     });
 }
 
-/* ===========================================
-   AUDIO PLAYER
-   =========================================== */
 function initAudioPlayer() {
     const audio      = document.getElementById('bgMusic');
     const player     = document.getElementById('audioPlayer');
@@ -1299,8 +1190,6 @@ function initAudioPlayer() {
     const volFill    = document.getElementById('apVolFill');
     const volLabel   = document.getElementById('apVolLabel');
     if (!audio || !player) return;
-
-    // --- Restore saved volume (default 35) ---
     const savedVol = parseInt(localStorage.getItem('apVolume') ?? '35', 10);
     const initVol  = Math.max(0, Math.min(100, isNaN(savedVol) ? 35 : savedVol));
     audio.volume   = initVol / 100;
@@ -1341,8 +1230,6 @@ function initAudioPlayer() {
             icon.innerHTML = '<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>';
         }
     }
-
-    // Exposed for window.onMediaReady â€” called once audio src is available
     window.apSetAudioSource = (url) => {
         if (!url) return;
         audio.src = url;
@@ -1350,20 +1237,15 @@ function initAudioPlayer() {
         audio.addEventListener('canplaythrough', () => {
             audio.play().then(() => setPlaying(true)).catch(()=>{});
         }, { once: true });
-        // Fallback: first user click
         document.addEventListener('click', function onFirstClick() {
             if (audio.paused && audio.src) audio.play().then(()=>setPlaying(true)).catch(()=>{});
             document.removeEventListener('click', onFirstClick);
         });
     };
-
-    // Play / Pause button
     btnPlay?.addEventListener('click', () => {
         if (audio.paused) { audio.play().then(() => setPlaying(true)).catch(() => {}); }
         else              { audio.pause(); setPlaying(false); }
     });
-
-    // Seek
     track?.addEventListener('click', e => {
         const rect  = track.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -1383,8 +1265,6 @@ function initAudioPlayer() {
         shuffleOn = !shuffleOn;
         btnShuffle.classList.toggle('ap-btn--active', shuffleOn);
     });
-
-    // Volume slider
     volSlider?.addEventListener('input', () => {
         const v = parseInt(volSlider.value, 10);
         audio.volume = v / 100;
@@ -1394,16 +1274,12 @@ function initAudioPlayer() {
         updateVolIcon(v);
         localStorage.setItem('apVolume', v);
     });
-
-    // Volume icon = mute toggle
     btnVolBtn?.addEventListener('click', () => {
         audio.muted = !audio.muted;
         const displayVol = audio.muted ? 0 : parseInt(volSlider?.value ?? '35', 10);
         updateVolIcon(displayVol);
         if (volLabel) volLabel.textContent = audio.muted ? '0' : (volSlider?.value ?? '35');
     });
-
-    // Sync events
     audio.addEventListener('timeupdate',     updateProgress);
     audio.addEventListener('loadedmetadata', () => { durEl.textContent = fmt(audio.duration); });
     audio.addEventListener('play',  () => setPlaying(true));
@@ -1418,12 +1294,6 @@ function toggleBgm(on) {
     else    { a.pause(); }
 }
 
-/* ===========================================
-   TOAST
-   =========================================== */
-/* ===========================================
-   CONFIRM MODAL
-   =========================================== */
 function showConfirm(message) {
     return new Promise(resolve => {
         const modal  = document.getElementById('confirmModal');
@@ -1460,9 +1330,6 @@ function toast(msg, type='info') {
     }, 3500);
 }
 
-/* ===========================================
-   CÀI FONT TUỲ CHỈNH
-   =========================================== */
 const FC = {
     fontPath: '',
     building: false,
@@ -1473,8 +1340,6 @@ function initFontCreator() {
     document.getElementById('fcBuildBtn')?.addEventListener('click', fcBuild);
     document.getElementById('fcRevertBtn')?.addEventListener('click', fcRevert);
 }
-
-// Called whenever the Font page becomes visible
 function fcRefreshStatus() {
     if (!S.gamePath) {
         fcSetCurrentFont(null);
@@ -1502,7 +1367,6 @@ function fcSetCurrentFont(name) {
 
 async function fcBrowseFont() {
     if (!bridge()) {
-        // Demo mode
         FC.fontPath = 'C:\\Fonts\\MyFont.ttf';
         document.getElementById('fcFontDisplay').textContent = 'MyFont.ttf';
         document.getElementById('fcOutputName').value = 'MyFont';
@@ -1595,11 +1459,4 @@ function fcSetStatus(msg, isError, isSuccess = false) {
     el.className = 'fc-status' + (isError ? ' fc-status--err' : isSuccess ? ' fc-status--ok' : '');
     el.textContent = msg;
 }
-
-
-
-
-
-
-
 

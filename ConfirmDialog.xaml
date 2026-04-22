@@ -21,13 +21,13 @@
             BorderThickness="1"
             CornerRadius="10"
             Padding="28,24,28,22">
-        <!-- Top gold accent line -->
+        
         <Border.Effect>
             <DropShadowEffect Color="#000000" BlurRadius="32" ShadowDepth="0" Opacity="0.7"/>
         </Border.Effect>
 
         <StackPanel>
-            <!-- Icon + Title row -->
+            
             <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                 <Viewbox Width="20" Height="20" Margin="0,1,10,0">
                     <Canvas Width="24" Height="24">
@@ -43,10 +43,8 @@
                            VerticalAlignment="Center"/>
             </StackPanel>
 
-            <!-- Separator -->
             <Rectangle Height="1" Fill="#1E2A40" Margin="0,0,0,16"/>
 
-            <!-- Message -->
             <TextBlock x:Name="MessageText"
                        Text=""
                        FontSize="13"
@@ -55,7 +53,6 @@
                        LineHeight="20"
                        Margin="0,0,0,24"/>
 
-            <!-- Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="BtnCancel"
                         Content="Huỷ"

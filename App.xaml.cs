@@ -21,7 +21,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        // Anti-debugger: exit silently if any debugger is attached
+        
         if (Debugger.IsAttached || IsDebuggerPresent())
         { Shutdown(); return; }
         CheckRemoteDebuggerPresent(GetCurrentProcess(), out var remote);
@@ -36,7 +36,6 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, _) => KillWebView2Tree();
         AppDomain.CurrentDomain.ProcessExit += (_, _) => KillWebView2Tree();
 
-        // Periodic anti-debug check every 3 seconds
         var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         timer.Tick += (_, _) =>
         {

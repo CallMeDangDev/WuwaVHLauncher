@@ -11,7 +11,6 @@ static class WuwaPakPacker
     const string FontInPakPath   = "Client/Content/Aki/UI/Framework/LGUI/Font/LaguSansBold.ufont";
     const string DefaultMount    = "../../../";
 
-    // ── helpers ──────────────────────────────────────────────────────────────
 
     static void WriteString(BinaryWriter w, string s)
     {
@@ -25,7 +24,6 @@ static class WuwaPakPacker
 
     static byte[] Sha1(byte[] data) => SHA1.HashData(data);
 
-    // FNV-64 over lowercase UTF-16 LE, matching UE PathHashIndex
     static ulong Fnv64Path(string path, ulong seed)
     {
         const ulong Off  = 0xcbf29ce484222325UL;
@@ -40,7 +38,6 @@ static class WuwaPakPacker
         return h;
     }
 
-    // V12 bit scramble for the encoded-entry flags field
     static uint ScrambleFlags(uint f)
         => ((f & 0x3fu) << 16)
          | ((f >> 6) & 0xFFFFu)
@@ -87,14 +84,12 @@ static class WuwaPakPacker
         return ms.ToArray();
     }
 
-    // ── packer ────────────────────────────────────────────────────────────────
 
     static void Pack(string dest, string mount, ulong seed, IReadOnlyList<(string Path, byte[] Data)> files)
     {
         using var fs = new FileStream(dest, FileMode.Create, FileAccess.Write, FileShare.None);
         using var w  = new BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: true);
 
-        // data section
         var dataOffsets = new ulong[files.Count];
         for (int i = 0; i < files.Count; i++)
         {
@@ -112,7 +107,6 @@ static class WuwaPakPacker
 
         ulong indexOffset = (ulong)fs.Position;
 
-        // encoded index entries
         using var encMs = new MemoryStream();
         using var encW  = new BinaryWriter(encMs, System.Text.Encoding.UTF8, leaveOpen: true);
         var encodedOffsets = new uint[files.Count];
@@ -134,7 +128,6 @@ static class WuwaPakPacker
         encW.Flush();
         byte[] enc = encMs.ToArray();
 
-        // path hash index
         using var phiMs = new MemoryStream();
         using var phiW  = new BinaryWriter(phiMs, System.Text.Encoding.UTF8, leaveOpen: true);
         phiW.Write((uint)files.Count);
@@ -149,18 +142,16 @@ static class WuwaPakPacker
 
         byte[] fdi = BuildFdi(files.Select(f => f.Path).ToList(), encodedOffsets);
 
-        // compute absolute offsets for secondary indexes
         ulong bytesBeforePhi =
               (ulong)StringSize(mount)
-            + 4 + 8                 // count + seed
-            + 4 + 8 + 8 + 20       // phi header
-            + 4 + 8 + 8 + 20       // fdi header
+            + 4 + 8                 
+            + 4 + 8 + 8 + 20       
+            + 4 + 8 + 8 + 20       
             + 4 + (ulong)enc.Length + 4;
 
         ulong phiOffset = indexOffset + bytesBeforePhi;
         ulong fdiOffset = phiOffset   + (ulong)phi.Length;
 
-        // index header (built in memory for hashing)
         using var idxMs = new MemoryStream();
         using var idxW  = new BinaryWriter(idxMs, System.Text.Encoding.UTF8, leaveOpen: true);
         WriteString(idxW, mount);
@@ -178,19 +169,17 @@ static class WuwaPakPacker
         w.Write(phi);
         w.Write(fdi);
 
-        // footer
-        w.Write((ulong)0); w.Write((ulong)0); // encryption uuid = none
-        w.Write((byte)0);                     // not encrypted
+        w.Write((ulong)0); w.Write((ulong)0); 
+        w.Write((byte)0);                     
         w.Write(Magic);
         w.Write(VersionMajorWuwa);
         w.Write(indexOffset);
         w.Write((ulong)indexBuf.Length);
         w.Write(Sha1(indexBuf));
-        w.Write(new byte[32 * 5]);            // compression name slots (V8B)
+        w.Write(new byte[32 * 5]);            
         w.Flush();
     }
 
-    // ── public API ────────────────────────────────────────────────────────────
 
     public static string PackFont(string modDir, string pakName, byte[] fontData)
     {
