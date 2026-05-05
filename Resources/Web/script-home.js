@@ -201,7 +201,7 @@ window.onAdminRequired = () => {
 window.onGamePathDetected = path => {
     S.gamePath = path;
     S.cfg.gamePath = path;
-    
+    saveSettings();
     if (!S.autoCheckDone && !S.installing) {
         S.autoCheckDone = true;
         setTimeout(() => { if (!S.installing) startInstall(); }, 800);

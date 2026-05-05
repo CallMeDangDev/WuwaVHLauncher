@@ -152,10 +152,10 @@ window.onLauncherUpdateError = (msg) => {
     toast('Cập nhật thất bại: ' + msg, 'err');
 };
 
-function loadSettings() {
+async function loadSettings() {
     if (bridge()) {
         try {
-            const j = bridge().LoadSettings();
+            const j = await bridge().LoadSettings();
             if (j) {
                 Object.assign(S.cfg, JSON.parse(j));
                 S.gamePath = S.cfg.gamePath || '';
