@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initBottomBar();
     initAudioPlayer();
     initWaterRipple();
+    initCyberEffects();
     initFontCreator();
     initPerformanceMode();
     initSidePanel();
