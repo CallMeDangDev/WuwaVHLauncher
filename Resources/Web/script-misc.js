@@ -421,7 +421,7 @@ function fcSetCurrentFont(name) {
         nameEl.classList.add('fc-current__name--custom');
         if (revertBtn) revertBtn.style.display = '';
     } else {
-        nameEl.textContent = 'Font gốc (UTMAlexander)';
+        nameEl.textContent = 'Font gốc (Signika-Bold)';
         nameEl.classList.remove('fc-current__name--custom');
         if (revertBtn) revertBtn.style.display = 'none';
     }
@@ -469,7 +469,7 @@ async function fcBuild() {
 
 async function fcRevert() {
     if (!S.gamePath) { toast('Chưa chọn thư mục game!', 'err'); return; }
-    const confirmed = await showConfirm('Xoá font tuỳ chỉnh và dùng lại font gốc UTMAlexander?');
+    const confirmed = await showConfirm('Xoá font tuỳ chỉnh và dùng lại font gốc Signika-Bold?');
     if (!confirmed) return;
     fcSetStatus('Đang xoá font tuỳ chỉnh...', false);
     if (bridge()) {

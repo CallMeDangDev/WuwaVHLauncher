@@ -306,13 +306,13 @@ public partial class MainWindow : Window
 
             bool hasCustomFont = Directory.Exists(modDir) &&
                 Directory.GetFiles(modDir, "*_100_P.pak")
-                         .Any(f => !Path.GetFileName(f).Equals("UTMAlexander_100_P.pak", StringComparison.OrdinalIgnoreCase));
+                         .Any(f => !Path.GetFileName(f).Equals("Signika-Bold_100_P.pak", StringComparison.OrdinalIgnoreCase));
 
             foreach (var item in doc.RootElement.GetProperty("assets").EnumerateArray())
             {
                 var name = item.GetProperty("name").GetString() ?? "";
-                if (name == "UTMAlexander_100_P.pak" && hasCustomFont) continue;
-                if (name == "WuWaVH_99_P.pak" || name == "UTMAlexander_100_P.pak" || name == "version.dll" || name == "winhttp.dll")
+                if (name == "Signika-Bold_100_P.pak" && hasCustomFont) continue;
+                if (name == "WuWaVH_99_P.pak" || name == "Signika-Bold_100_P.pak" || name == "version.dll" || name == "winhttp.dll")
                 {
                     var url = item.GetProperty("browser_download_url").GetString() ?? "";
                     var size = item.GetProperty("size").GetInt64();
@@ -947,7 +947,7 @@ public class LauncherBridge
     }
 
 
-    static readonly string RepoFontPak = "UTMAlexander_100_P.pak";
+    static readonly string RepoFontPak = "Signika-Bold_100_P.pak";
 
     public string BrowseFontFile() =>
         _w.Dispatcher.Invoke(() =>
