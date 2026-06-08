@@ -312,7 +312,7 @@ public partial class MainWindow : Window
             {
                 var name = item.GetProperty("name").GetString() ?? "";
                 if (name == "UTMAlexander_100_P.pak" && hasCustomFont) continue;
-                if (name == "WuWaVH_99_P.pak" || name == "UTMAlexander_100_P.pak" || name == "version.dll")
+                if (name == "WuWaVH_99_P.pak" || name == "UTMAlexander_100_P.pak" || name == "version.dll" || name == "winhttp.dll")
                 {
                     var url = item.GetProperty("browser_download_url").GetString() ?? "";
                     var size = item.GetProperty("size").GetInt64();
@@ -324,6 +324,9 @@ public partial class MainWindow : Window
                     toDownload.Add((name, url, size, digest));
                 }
             }
+
+            if (toDownload.Any(x => x.Name == "version.dll"))
+                toDownload.RemoveAll(x => x.Name == "winhttp.dll");
 
             if (toDownload.Count == 0)
                 throw new Exception("Không tìm thấy file cài đặt trên máy chủ.");
@@ -343,7 +346,7 @@ public partial class MainWindow : Window
             bool allFilesUpToDate = true;
             foreach (var (name, _, _, hash) in toDownload)
             {
-                var destPath = name == "version.dll" ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
+                var destPath = (name == "version.dll" || name == "winhttp.dll") ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
                 
                 if (!File.Exists(destPath))
                 {
@@ -379,7 +382,7 @@ public partial class MainWindow : Window
             long totalBytes = 0;
             foreach (var (name, _, size, hash) in toDownload)
             {
-                var destPath = name == "version.dll" ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
+                var destPath = (name == "version.dll" || name == "winhttp.dll") ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
                 bool needsUpdate = !File.Exists(destPath) ||
                                    string.IsNullOrEmpty(hash) ||
                                    !localCache.TryGetValue(name, out var cachedHash) ||
@@ -397,7 +400,7 @@ public partial class MainWindow : Window
 
             foreach (var (name, url, size, hash) in toDownload)
             {
-                var destPath = name == "version.dll" ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
+                var destPath = (name == "version.dll" || name == "winhttp.dll") ? Path.Combine(baseDir, name) : Path.Combine(modDir, name);
 
                 if (!needsUpdateSet.Contains(name))
                     continue;
@@ -896,11 +899,14 @@ public class LauncherBridge
             var baseDir = Path.Combine(gamePath, @"Client\Binaries\Win64");
             var modDir  = Path.Combine(baseDir, "wuwaVietHoa");
             var versionDll = Path.Combine(baseDir, "version.dll");
+            var winhttpDll = Path.Combine(baseDir, "winhttp.dll");
 
             if (Directory.Exists(modDir))
                 Directory.Delete(modDir, true);
             if (File.Exists(versionDll))
                 File.Delete(versionDll);
+            if (File.Exists(winhttpDll))
+                File.Delete(winhttpDll);
 
             var versionCache = Path.Combine(MainWindow.AppDataFolder, "versions.json");
             if (File.Exists(versionCache))
